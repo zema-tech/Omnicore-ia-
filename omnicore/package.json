@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "fuse:py": "python3 omnicore_py/cli.py --fuse",
     "fuse:sh": "bash scripts/omnicore.sh --fuse",
-    "fuse:rs": "cargo run -q -p omnicore_rs --"
+    "fuse:rs": "cargo run -q --manifest-path omnicore_rs/Cargo.toml --"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
