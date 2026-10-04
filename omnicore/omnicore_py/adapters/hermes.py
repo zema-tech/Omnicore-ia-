@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 HERE = Path(__file__).resolve().parent.parent  # omnicore_py/
-DEFAULT_HERMES = HERE.parent / "vendors" / "hermes"
+DEFAULT_HERMES = HERE.parent.parent / "vendors" / "hermes"  # repo/vendors/hermes
 
 _HANDLERS = None
 _TOOL_NAMES: tuple = ()

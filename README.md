@@ -24,6 +24,19 @@ npm run fuse -- "ciao"
 Altri entrypoint equivalenti: `fuse:py` (Python), `fuse:sh` (Bash),
 `fuse:rs` (Rust). Dettagli deploy su qualsiasi host in [`omnicore/DEPLOY.md`](omnicore/DEPLOY.md).
 
+## OmniLang (`.omni`)
+
+Mini-linguaggio glue per collegare sistemi all'IA senza codice imperativo:
+sintassi stile Python, annotazioni opzionali stile TS. Dichiari
+`system → tool → flow` e l'executor chiama gli adapter reali:
+
+```bash
+npm run omni -- omniling/examples/hello.omni "ciao"   # TS
+npm run omni:py -- omniling/examples/hello.omni "ciao" # Python
+```
+
+Stesso sorgente, stesso AST byte-identico in entrambi. Spec in [`omnicore/omniling/SPEC.md`](omnicore/omniling/SPEC.md).
+
 ## Struttura
 
 ```

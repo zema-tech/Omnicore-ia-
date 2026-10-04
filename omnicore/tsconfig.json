@@ -6,9 +6,8 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": "src",
     "declaration": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src"]
+  "include": ["src", "omniling/ts"]
 }

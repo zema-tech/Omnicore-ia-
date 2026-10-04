@@ -1,0 +1,18 @@
+# Flow code: brain recall -> hands build (solo se recall non vuoto).
+# Nota: build chiama davvero opencode (serve o CLI). Usare con cura.
+
+system hermes: memory via "bridge"
+system opencode: hands via "http://127.0.0.1:4096"
+
+tool recall on hermes:
+  call "conversations_list"
+  args search = $query, limit = 5
+
+tool build on opencode:
+  call "session/prompt"
+  args prompt = $text
+
+flow "fix" when intent == "code":
+  ctx = recall(search: $text)
+  if ctx:
+    patch = build(prompt: $text)

@@ -13,7 +13,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "fuse:py": "python3 omnicore_py/cli.py --fuse",
     "fuse:sh": "bash scripts/omnicore.sh --fuse",
-    "fuse:rs": "cargo run -q --manifest-path omnicore_rs/Cargo.toml --"
+    "fuse:rs": "cargo run -q --manifest-path omnicore_rs/Cargo.toml --",
+    "omni": "node --experimental-strip-types omniling/ts/index.ts",
+    "omni:py": "python3 omniling/py/cli.py",
+    "serve": "python3 server.py"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
