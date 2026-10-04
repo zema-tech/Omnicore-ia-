@@ -1,0 +1,9 @@
+[submodule "vendors/hermes"]
+	path = vendors/hermes
+	url = https://github.com/NousResearch/hermes-agent.git
+[submodule "vendors/opencode"]
+	path = vendors/opencode
+	url = https://github.com/anomalyco/opencode.git
+[submodule "vendors/openclaw"]
+	path = vendors/openclaw
+	url = https://github.com/openclaw/openclaw.git
