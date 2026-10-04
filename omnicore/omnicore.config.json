@@ -1,0 +1,18 @@
+{
+  "hermes": {
+    "python": "python3",
+    "note": "usa vendors/hermes/mcp_serve.py via stdio (tools: conversations_list, messages_read, messages_send, poll_events, ...)"
+  },
+  "opencode": {
+    "baseUrl": "http://127.0.0.1:4096",
+    "note": "primario: `opencode serve` HTTP; fallback stabile su Termux: `opencode run \"...\" --format json`"
+  },
+  "openclaw": {
+    "baseUrl": "http://127.0.0.1:18789",
+    "rpcPath": "/api/v1/admin/rpc",
+    "note": "solo metodi allowlist (status, commands.list, cron.*, agents.*, channels.status). Il recapito live chat passa dal gateway WS/canali, non dall'admin-rpc."
+  },
+  "pipeline": {
+    "steps": ["brain(hermes.recall, best-effort)", "hands(opencode, solo se intent=code)", "face(openclaw.status+cron, best-effort, mai fatale)"]
+  }
+}

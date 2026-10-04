@@ -26,7 +26,7 @@ export async function promptServer(prompt: string, cfg: OpenCodeConfig, opts: { 
 }
 
 /** CLI fallback: `opencode run "<prompt>" --format json`. Streams JSON events. */
-export function promptCli(prompt: string, cfg: OpenCodeConfig = { baseUrl: "" }, opts: { directory?: string } = {}): Promise<string> {
+export function promptCli(prompt: string, cfg: Partial<OpenCodeConfig> = {}, opts: { directory?: string } = {}): Promise<string> {
   const bin = cfg.cli ?? "opencode";
   return new Promise((resolve, reject) => {
     const child = spawn(bin, ["run", prompt, "--format", "json"], {

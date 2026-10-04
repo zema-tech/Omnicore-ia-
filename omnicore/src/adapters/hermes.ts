@@ -1,19 +1,27 @@
 // Hermes adapter — brain: memory, skills, cron, past conversations.
-// Protocol: stdio MCP (`hermes mcp serve`) + CLI fallback.
-// Verified surface in vendors/hermes/mcp_serve.py:
-//   conversations_list, conversation_get, messages_read,
-//   messages_send, channels_list, poll_events, list_pending_approvals
+// Protocol: one-shot `scripts/hermes_bridge.py` (stdlib) che importa
+// DIRETTAMENTE gli handler di vendors/hermes/mcp_serve.py. Niente pacchetto
+// `mcp`, niente server persistente, niente hang: ogni chiamata esce subito.
+// Superficie reale (vedi _TOOL_NAMES in mcp_serve.py):
+//   conversations_list, conversation_get, messages_read, attachments_fetch,
+//   events_poll, events_wait, messages_send, channels_list,
+//   permissions_list_open, permissions_respond
 import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { HermesConfig } from "../types.ts";
 
 const TOOLS = [
   "conversations_list",
   "conversation_get",
   "messages_read",
+  "attachments_fetch",
+  "events_poll",
+  "events_wait",
   "messages_send",
   "channels_list",
-  "poll_events",
-  "list_pending_approvals",
+  "permissions_list_open",
+  "permissions_respond",
 ] as const;
 
 export type HermesTool = (typeof TOOLS)[number];
@@ -22,42 +30,45 @@ export function isHermesTool(name: string): name is HermesTool {
   return (TOOLS as readonly string[]).includes(name);
 }
 
+const HERE = dirname(fileURLToPath(import.meta.url));
+
 function resolveCfg(cfg: HermesConfig = {}) {
   return {
-    python: cfg.python ?? "python3",
-    hermesDir: cfg.hermesDir ?? new URL("../../../vendors/hermes", import.meta.url).pathname,
+    python: cfg.python ?? process.env["HERMES_PYTHON"] ?? "python3",
+    hermesDir:
+      cfg.hermesDir ??
+      process.env["HERMES_DIR"] ??
+      new URL("../../../vendors/hermes", import.meta.url).pathname,
+    bridge: join(HERE, "..", "..", "scripts", "hermes_bridge.py"),
   };
 }
 
-/** Raw MCP stdio call to `hermes mcp serve`. No MCP SDK needed. */
+/** One-shot verso il bridge: `python3 hermes_bridge.py <tool> '<json>'`. Esce sempre. */
 export function callHermesMcp(tool: HermesTool, args: Record<string, unknown> = {}, cfg: HermesConfig = {}): Promise<unknown> {
-  const { python, hermesDir } = resolveCfg(cfg);
+  const { python, hermesDir, bridge } = resolveCfg(cfg);
   return new Promise((resolve, reject) => {
-    const child = spawn(python, ["mcp_serve.py"], { cwd: hermesDir });
+    const child = spawn(python, [bridge, tool, JSON.stringify(args)], {
+      env: { ...process.env, HERMES_DIR: hermesDir },
+    });
     let out = "";
     let err = "";
     child.stdout.on("data", (d) => (out += String(d)));
     child.stderr.on("data", (d) => (err += String(d)));
     child.on("error", reject);
-    const payload = {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: tool, arguments: args },
-    };
-    child.stdin.write(JSON.stringify(payload) + "\n");
-    child.stdin.end();
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error(`hermes mcp timeout. stderr: ${err.slice(0, 500)}`));
+      reject(new Error("hermes bridge timeout (30s)"));
     }, 30_000);
-    child.on("close", () => {
+    child.on("close", (code) => {
       clearTimeout(timer);
-      const line = out.trim().split("\n").pop() ?? "";
+      if (code !== 0) {
+        reject(new Error(`hermes bridge exit ${code}: ${err.slice(0, 500)}`));
+        return;
+      }
       try {
-        resolve(JSON.parse(line || "null"));
+        resolve(JSON.parse(out.trim() || "null"));
       } catch {
-        reject(new Error(`hermes mcp bad JSON: ${line.slice(0, 500)} / stderr: ${err.slice(0, 500)}`));
+        reject(new Error(`hermes bridge bad JSON: ${out.slice(0, 500)}`));
       }
     });
   });
@@ -73,5 +84,6 @@ export const hermes = {
   send: (target: string, message: string, cfg?: HermesConfig) =>
     callHermesMcp("messages_send", { target, message }, cfg),
   poll: (after_cursor = 0, limit = 20, cfg?: HermesConfig) =>
-    callHermesMcp("poll_events", { after_cursor, limit }, cfg),
+    callHermesMcp("events_poll", { after_cursor, limit }, cfg),
+  channels: (cfg?: HermesConfig) => callHermesMcp("channels_list", {}, cfg),
 };

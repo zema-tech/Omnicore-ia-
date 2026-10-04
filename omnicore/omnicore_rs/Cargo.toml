@@ -1,0 +1,9 @@
+[package]
+name = "omnicore_rs"
+version = "0.1.0"
+edition = "2021"
+description = "Omnicore fusion mirror in Rust (std-only, zero dipendenze)"
+
+[[bin]]
+name = "omnicore"
+path = "src/main.rs"
