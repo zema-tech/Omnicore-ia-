@@ -1,58 +1,71 @@
 # Omnicore-ia
 
-Fusione di tre progetti open-source in un unico orchestratore poliglotta:
+**Omnicore** è un'IA agente — non un orchestratore di prodotti terzi.
 
-| Ruolo | Progetto | Cosa fa |
-|---|---|---|
-| 🧠 Brain | [Hermes Agent](vendors/hermes) | memoria, conversazioni, canali, cron |
-| 🙌 Hands | [OpenCode](vendors/opencode) | coding task (server `serve` o CLI `run`) |
-| 🗣️ Face | [OpenClaw](vendors/openclaw) | gateway, policy, ops |
+Nasce dalle capacità di motori open-source usati come **organi interni**:
 
-Il router classifica ogni input (`code` / `memory` / `ops` / `chat`) e la
-pipeline `--fuse` esegue **brain → hands → face**, con ogni step best-effort:
-se un servizio è spento, gli altri vanno avanti comunque.
+| Organo Omnicore | Motore | Funzione |
+|-----------------|--------|----------|
+| `memory.*` | [Hermes Agent](vendors/hermes) | memoria, skill, recall |
+| `code.*` | [OpenCode](vendors/opencode) | coding |
+| `channel.*` | [OpenClaw](vendors/openclaw) | presenza, canali, ops |
+| `world.*` | [Mirage](https://github.com/strukto-ai/mirage) (da collegare) | VFS / terminal virtuale |
+| `decide.*` | [CLM](https://github.com/Contrastive-LM/CLM) (da collegare) | rank/verify azioni |
+
+L'utente parla solo con **Omnicore**. I vendor non compaiono in facciata.
+
+Vedi [`omnicore/ARCHITECTURE.md`](omnicore/ARCHITECTURE.md).
 
 ## Quickstart
 
 ```bash
 git clone --recurse-submodules https://github.com/zema-tech/Omnicore-ia-.git
 cd Omnicore-ia-/omnicore
-cp .env.example .env   # opzionale: i default localhost bastano
-npm run fuse -- "ciao"
+cp .env.example .env   # opzionale
+
+# Turno IA (nucleo agente)
+npm run agent -- "fix login bug"
+npm run agent -- "ricordi cosa abbiamo fatto"
+
+# API + dashboard
+npm run serve
+# → http://127.0.0.1:8100
 ```
 
-Altri entrypoint equivalenti: `fuse:py` (Python), `fuse:sh` (Bash),
-`fuse:rs` (Rust). Dettagli deploy su qualsiasi host in [`omnicore/DEPLOY.md`](omnicore/DEPLOY.md).
+Legacy (pipeline esplicita): `npm run fuse -- "…"`.
 
-## OmniLang (`.omni`)
+## Nucleo agente
 
-Mini-linguaggio glue per collegare sistemi all'IA senza codice imperativo:
-sintassi stile Python, annotazioni opzionali stile TS. Dichiari
-`system → tool → flow` e l'executor chiama gli adapter reali:
+```
+omnicore/src/agent/
+  identity.ts   # chi è Omnicore
+  tools.ts      # tool unificati → organi
+  loop.ts       # plan → tool → risposta
+```
 
 ```bash
-npm run omni -- omniling/examples/hello.omni "ciao"   # TS
-npm run omni:py -- omniling/examples/hello.omni "ciao" # Python
+npm run agent -- "ciao"
 ```
-
-Stesso sorgente, stesso AST byte-identico in entrambi. Spec in [`omnicore/omniling/SPEC.md`](omnicore/omniling/SPEC.md).
 
 ## Struttura
 
 ```
 omnicore/
-  src/            core TypeScript (router, pipeline, adapters, config)
-  omnicore_py/    mirror Python (stdlib only)
-  omnicore_rs/    mirror Rust (zero dipendenze)
-  scripts/        hermes_bridge.py + orchestratore Bash
-  DEPLOY.md       guida deploy · .env.example · omnicore.config.json
-vendors/          submodule: hermes, opencode, openclaw (mai editare a mano)
+  src/agent/      ← nucleo IA
+  src/adapters/   ← organi (hermes, opencode, openclaw)
+  server.py       ← API + dashboard + sessioni
+  omniling/       ← DSL opzionale .omni
+vendors/          ← submodule (non editare a mano)
 ```
 
-## Come funziona
+## Aggiungere CLM e Mirage
 
-- **Brain**: `scripts/hermes_bridge.py` importa direttamente gli handler di
-  `vendors/hermes/mcp_serve.py` (stdlib, niente SDK MCP, niente demone).
-- **Hands**: `opencode serve` via HTTP, fallback su `opencode run --format json`.
-- **Face**: `POST /api/v1/admin/rpc` con metodi allowlist (`status`,
-  `commands.list`, `cron.*`, `agents.*`, `channels.status`).
+```bash
+cd Omnicore-ia-
+git submodule add --depth 1 https://github.com/Contrastive-LM/CLM.git vendors/clm
+git submodule add --depth 1 https://github.com/strukto-ai/mirage.git vendors/mirage
+git commit -m "vendors: clm + mirage"
+git push
+```
+
+Poi implementare `adapters/clm.ts` e `adapters/mirage.ts` collegati a `decide.*` e `world.*`.
