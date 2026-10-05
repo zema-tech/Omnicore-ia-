@@ -1,13 +1,14 @@
 {
   "name": "omnicore",
-  "version": "0.1.0",
-  "description": "Omnicore fusion core: OpenClaw (face) + Hermes (brain) + OpenCode (hands)",
+  "version": "0.2.0",
+  "description": "Omnicore — IA agente (memoria · codice · presenza · mondo · decide)",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "dev": "node --experimental-strip-types src/index.ts",
+    "agent": "node --experimental-strip-types src/index.ts --agent",
     "fuse": "node --experimental-strip-types src/index.ts --fuse",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
