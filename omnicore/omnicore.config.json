@@ -12,7 +12,12 @@
     "rpcPath": "/api/v1/admin/rpc",
     "note": "solo metodi allowlist (status, commands.list, cron.*, agents.*, channels.status). Il recapito live chat passa dal gateway WS/canali, non dall'admin-rpc."
   },
+  "llm": {
+    "baseUrl": "",
+    "model": "omnicore-fusion",
+    "note": "OpenAI-compatible: imposta baseUrl (es. https://openrouter.ai/api/v1 o http://127.0.0.1:11434/v1) + env OMNICORE_LLM_API_KEY. Vuoto = euristica offline + Ollama nativo se presente."
+  },
   "pipeline": {
-    "steps": ["brain(hermes.recall, best-effort)", "hands(opencode, solo se intent=code)", "face(openclaw.status+cron, best-effort, mai fatale)"]
+    "steps": ["brain(hermes.recall, best-effort)", "hands(opencode, solo se intent=code)", "face(openclaw.status+cron, best-effort, mai fatale)", "mind(sintesi LLM o euristica -> answer unica, identita omnicore)"]
   }
 }

@@ -146,12 +146,15 @@ class Handler(BaseHTTPRequestHandler):
                 res = fuse(text)
             except Exception as e:
                 res = {"intent": "chat", "handler": "none", "text": text,
-                       "steps": [], "error": str(e)[:300]}
+                       "steps": [], "error": str(e)[:300],
+                       "answer": f"Sono Omnicore: ho recepito “{text}”, ma qualcosa si è inceppato. Riprova.",
+                       "identity": "omnicore"}
             ok = all(s.get("ok", False) for s in res.get("steps", []) if s.get("step") != "face") \
                 if res.get("steps") else False
             sid = _log(body.get("session_id") or None,
                        {"text": text, "intent": res.get("intent"),
                         "handler": res.get("handler"), "ok": ok,
+                        "answer": str(res.get("answer", ""))[:2000],
                         "summary": "; ".join(
                             f"{s.get('step')}:{'ok' if s.get('ok') else 'ko'}"
                             for s in res.get("steps", []))})

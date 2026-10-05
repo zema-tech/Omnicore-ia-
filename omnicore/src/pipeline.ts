@@ -7,6 +7,7 @@ import { route } from "./router.ts";
 import { hermes } from "./adapters/hermes.ts";
 import { opencode } from "./adapters/opencode.ts";
 import { openclaw } from "./adapters/openclaw.ts";
+import { synthesize } from "./mind/synth.ts";
 import { loadConfig } from "./config.ts";
 import type { OmnicoreRequest } from "./types.ts";
 
@@ -23,6 +24,9 @@ export interface FuseResult {
   handler: string;
   text: string;
   steps: FuseStep[];
+  answer: string;
+  mind: { via: string; model: string };
+  identity: "omnicore";
 }
 
 function err(e: unknown): string {
@@ -74,5 +78,11 @@ export async function fuse(req: OmnicoreRequest): Promise<FuseResult> {
     steps.push({ step: "face", via: "openclaw(admin-http-rpc) [http]", ok: false, error: err(e) });
   }
 
-  return { intent, handler, text: req.text, steps };
+  // 4) MIND — sintesi a vera IA (LLM se configurato, altrimenti euristica offline)
+  let mind = { answer: `Sono Omnicore: ho recepito “${req.text}”.`, via: "fallback", model: "none" };
+  try {
+    mind = await synthesize(req.text, intent, steps);
+  } catch { /* mai fatale */ }
+
+  return { intent, handler, text: req.text, steps, answer: mind.answer, mind: { via: mind.via, model: mind.model }, identity: "omnicore" as const };
 }

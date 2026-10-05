@@ -12,6 +12,8 @@ export interface OmnicoreConfig {
   openclawUrl: string;
   openclawToken: string;
   openclawRpcPath: string;
+  llmBaseUrl: string;
+  llmModel: string;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,5 +42,7 @@ export function loadConfig(): OmnicoreConfig {
     openclawUrl: process.env["OPENCLAW_URL"] ?? j?.openclaw?.baseUrl ?? here("http://127.0.0.1:18789"),
     openclawToken: process.env["OPENCLAW_TOKEN"] ?? "",
     openclawRpcPath: j?.openclaw?.rpcPath ?? "/api/v1/admin/rpc",
+    llmBaseUrl: process.env["OMNICORE_LLM_BASE_URL"] ?? j?.llm?.baseUrl ?? "",
+    llmModel: process.env["OMNICORE_LLM_MODEL"] ?? j?.llm?.model ?? "omnicore-fusion",
   };
 }

@@ -67,7 +67,8 @@ async function api(path, body) {
 }
 function msgHtml(m) {
   const cls = m.ok === true ? 'ok' : (m.ok === false ? 'ko' : '');
-  return `<div class="msg"><span class="t"></span><span class="badge">${m.intent||''} · ${m.handler||''}</span> <span class="badge ${cls}">${m.ok===undefined?'':(m.ok?'ok':'ko')}</span><div></div><div class="steps">${m.summary||''}</div></div>`;
+  const ans = m.answer ? `<div style="margin-top:6px;color:var(--txt);white-space:pre-wrap;border-left:2px solid var(--acc);padding-left:8px">${escapeHtml(m.answer)}</div>` : '';
+  return `<div class="msg"><span class="t"></span><span class="badge">${m.intent||''} · ${m.handler||''}</span> <span class="badge ${cls}">${m.ok===undefined?'':(m.ok?'ok':'ko')}</span><div></div>${ans}<div class="steps">${m.summary||''}</div></div>`;
 }
 async function loadSessions() {
   const list = await api('/api/sessions');

@@ -1,4 +1,5 @@
-"""Pipeline di fusione (Python): brain -> hands -> face. Mai throw: ogni step ha ok/error."""
+"""Pipeline di fusione (Python): brain -> hands -> face -> MIND (sintesi).
+Mai throw: ogni step ha ok/error; fuse() ritorna sempre anche `answer`."""
 from __future__ import annotations
 
 from typing import Any
@@ -44,4 +45,13 @@ def fuse(text: str, *, directory: str = "") -> dict:
     except Exception as e:
         steps.append({"step": "face", "via": "openclaw(admin-http-rpc) [http]", "ok": False, "error": _err(e)})
 
-    return {"intent": intent, "handler": handler, "text": text, "steps": steps}
+    # 4) MIND — sintesi a vera IA (LLM se configurato, altrimenti euristica offline)
+    try:
+        from .mind.synth import synthesize
+        mind = synthesize(text, intent, steps)
+    except Exception as e:
+        mind = {"answer": f"Sono Omnicore: ho recepito “{text}”. ({str(e)[:120]})",
+                "via": "fallback", "model": "none"}
+    return {"intent": intent, "handler": handler, "text": text, "steps": steps,
+            "answer": mind.get("answer"), "mind": {"via": mind.get("via"), "model": mind.get("model")},
+            "identity": "omnicore"}

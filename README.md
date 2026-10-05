@@ -56,3 +56,9 @@ vendors/          submodule: hermes, opencode, openclaw (mai editare a mano)
 - **Hands**: `opencode serve` via HTTP, fallback su `opencode run --format json`.
 - **Face**: `POST /api/v1/admin/rpc` con metodi allowlist (`status`,
   `commands.list`, `cron.*`, `agents.*`, `channels.status`).
+- **Mind** (`omnicore_py/mind/` + `src/mind/`, solo stdlib): la fusione vera.
+  Brain/hands/face diventano *contesto strumenti*, poi la mente sintetizza
+  **una sola risposta** con identità Omnicore (`answer` in ogni `fuse()`):
+  memoria unificata `data/memory.json` + provider LLM OpenAI-compatibile
+  (`OMNICORE_LLM_BASE_URL/MODEL/API_KEY`, oppure Ollama nativo) con fallback
+  a sintesi euristica offline — mai un dump JSON.

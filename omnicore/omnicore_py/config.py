@@ -21,6 +21,7 @@ def _json_config() -> dict:
 def load_config() -> dict:
     j = _json_config()
     vendors_hermes = str(HERE.parent.parent / "vendors" / "hermes")
+    llm = j.get("llm") or {}
     return {
         "hermes_python": os.environ.get("HERMES_PYTHON", "python3"),
         "hermes_dir": os.environ.get("HERMES_DIR", vendors_hermes),
@@ -29,4 +30,7 @@ def load_config() -> dict:
         "openclaw_url": os.environ.get("OPENCLAW_URL", (j.get("openclaw") or {}).get("baseUrl", "http://127.0.0.1:18789")),
         "openclaw_token": os.environ.get("OPENCLAW_TOKEN", ""),
         "openclaw_rpc_path": ((j.get("openclaw") or {}).get("rpcPath", "/api/v1/admin/rpc")),
+        "llm_base_url": os.environ.get("OMNICORE_LLM_BASE_URL", llm.get("baseUrl", "")),
+        "llm_api_key": os.environ.get("OMNICORE_LLM_API_KEY", ""),
+        "llm_model": os.environ.get("OMNICORE_LLM_MODEL", llm.get("model", "omnicore-fusion")),
     }
