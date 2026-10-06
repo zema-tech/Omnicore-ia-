@@ -1,5 +1,8 @@
 """LLM provider unificato (stdlib only).
 
+DEPRECATO (Tappa 1): il core e TypeScript (`src/mind/llm.ts`). Vedi header
+di `omnicore_py/mind/__init__.py`.
+
 Priorita:
   1. OpenAI-compatible: OMNICORE_LLM_BASE_URL + MODEL (+ API_KEY se serve).
      Esempi: https://openrouter.ai/api/v1 , http://127.0.0.1:1234/v1 (LM Studio),

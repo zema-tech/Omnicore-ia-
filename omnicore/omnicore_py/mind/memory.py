@@ -1,5 +1,8 @@
 """Memoria unificata Omnicore (stdlib only).
 
+DEPRECATO (Tappa 1): il core e TypeScript (`src/mind/memory.ts`). Vedi header
+di `omnicore_py/mind/__init__.py`.
+
 Una sola memoria, qualunque backend abbia gestito la richiesta:
   data/memory.json  <- fatti estratti (max 300, con ts + intent)
   data/sessions.json <- storico conversazioni (gia esistente, letto come contesto)

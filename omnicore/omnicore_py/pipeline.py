@@ -1,5 +1,10 @@
-"""Pipeline di fusione (Python): memoria -> codice -> presenza -> MENTE (sintesi).
-Mai throw: ogni step ha ok/error; fuse() ritorna sempre anche `answer`."""
+"""Pipeline di fusione (Python).
+
+DEPRECATO (Tappa 1): il core e TypeScript (`src/pipeline.ts`, `src/agent/`).
+Questo modulo resta solo per riferimento e per la CLI legacy `fuse:py`;
+NON usarlo in nuovo codice e NON collegarlo al server (server.py delega
+al loop TS). Rimozione fisica prevista in tappa dedicata.
+"""
 from __future__ import annotations
 
 from typing import Any

@@ -1,4 +1,7 @@
-"""Sintesi Omnicore: da steps JSON a UNA risposta da vera IA.
+"""Sintesi Omnicore.
+
+DEPRECATO (Tappa 1): il core e TypeScript (`src/mind/synth.ts`, usato da
+`src/agent/loop.ts`). Vedi header di `omnicore_py/mind/__init__.py`.
 
 Fuse raccoglie brain/hands/face come *contesto strumenti*, poi qui nasce
 la risposta unica con identita Omnicore. Se un LLM e configurato
