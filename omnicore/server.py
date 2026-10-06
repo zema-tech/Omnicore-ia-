@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-"""Omnicore server — UNICA API + sessioni uniche + dashboard. Solo stdlib.
+"""Omnicore server — guscio HTTP sopra l'UNICO loop agente (TypeScript).
 
 Uso:  python3 server.py [--port 8100]      (da omnicore/)
 Poi:  http://127.0.0.1:8100               (dashboard)
-      POST /api/chat   {text, session_id?} -> fuse + log in sessione unica
-      POST /api/route  {text}              -> {intent, handler}
-      POST /api/fuse   {text}              -> pipeline brain->hands->face
-      POST /api/omni   {source, text}      -> esegue OmniLang
+      POST /api/chat   {text, session_id?} -> agent loop TS + log in sessione unica
+      POST /api/route  {text}              -> {intent, handler} (solo classifica, non esegue)
+      POST /api/fuse   {text}              -> alias legacy di /api/chat (stesso loop TS)
+      POST /api/omni   {source, text}      -> esegue OmniLang (DSL separata)
       GET  /api/sessions                   -> elenco sessioni uniche
       GET  /api/session?id=...             -> dettaglio sessione
 
-Le sessioni vivono in data/sessions.json: UN solo storico, qualunque
-backend (hermes/opencode/openclaw) abbia gestito la richiesta.
+Questo file NON pensa: ogni turno e delegato a
+`node src/index.ts --agent` (core TypeScript, unico loop).
+Le sessioni vivono in data/sessions.json: UN solo storico.
+Node usato: $OMNICORE_NODE (default "node", richiesto >=22).
 """
 from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -29,9 +32,12 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "omniling" / "py"))
 
 from omnicore_py.router import route  # noqa: E402
-from omnicore_py.pipeline import fuse  # noqa: E402
 from omniling.parser import parse as omni_parse  # noqa: E402
 from omniling.executor import run as omni_run  # noqa: E402
+
+NODE = os.environ.get("OMNICORE_NODE", "node")
+TS_ENTRY = HERE / "src" / "index.ts"
+AGENT_TIMEOUT = float(os.environ.get("OMNICORE_AGENT_TIMEOUT", "120"))
 
 DATA = HERE / "data"
 SESSIONS_FILE = DATA / "sessions.json"
@@ -62,6 +68,48 @@ def _log(session_id: str | None, entry: dict) -> str:
         sessions[session_id]["messages"].append({"ts": time.time(), **entry})
         _save(db)
         return session_id
+
+
+def _agent_turn(text: str, directory: str = "") -> dict:
+    """UNICO percorso di pensiero: un turno dell'agent loop TypeScript.
+
+    Ritorna il dict dell'agent (agent/text/intent/plan/trace/reply/system)
+    oppure {"error": ...} se node non parte. MAI fallback su altre pipeline:
+    se il core non risponde, l'errore e onesto e visibile.
+    """
+    cmd = [NODE, "--experimental-strip-types", str(TS_ENTRY), "--agent", text]
+    if directory:
+        cmd += ["--dir", directory]
+    t0 = time.time()
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=AGENT_TIMEOUT, cwd=str(HERE))
+    except FileNotFoundError:
+        return {"intent": "chat", "handler": "none", "text": text, "plan": [],
+                "trace": [], "reply": "",
+                "error": f"node non trovato ({NODE}): imposta OMNICORE_NODE o installa Node >=22."}
+    except subprocess.TimeoutExpired:
+        return {"intent": "chat", "handler": "none", "text": text, "plan": [],
+                "trace": [], "reply": "",
+                "error": f"agent loop oltre {AGENT_TIMEOUT:g}s: nessun fallback, riprova."}
+    out = (p.stdout or "").strip()
+    try:
+        res = json.loads(out)
+    except Exception:
+        res = {"intent": "chat", "handler": "none", "text": text, "plan": [],
+               "trace": [], "reply": "",
+               "error": f"agent output non-JSON (exit {p.returncode}): {(out or p.stderr or '')[:200]}"}
+    res["elapsed_ms"] = int((time.time() - t0) * 1000)
+    return res
+
+
+def _trace_summary(res: dict) -> str:
+    parts = []
+    for t in res.get("trace", []):
+        if t.get("name") == "respond":
+            continue
+        parts.append(f"{t.get('name')}:{'ok' if t.get('ok') else 'ko'}")
+    return " | ".join(parts) or "nessun tool"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -126,10 +174,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json({**route(text), "text": text})
             return
         if self.path == "/api/fuse":
-            try:
-                self._json(fuse(str(body.get("text", ""))))
-            except Exception as e:
-                self._json({"error": str(e)[:300]}, 500)
+            # Alias legacy: STESSO unico loop agente di /api/chat, nessuna seconda pipeline.
+            self._json(_agent_turn(str(body.get("text", ""))))
             return
         if self.path == "/api/omni":
             try:
@@ -142,22 +188,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/chat":
             text = str(body.get("text", ""))
-            try:
-                res = fuse(text)
-            except Exception as e:
-                res = {"intent": "chat", "handler": "none", "text": text,
-                       "steps": [], "error": str(e)[:300],
-                       "answer": f"Sono Omnicore: ho recepito “{text}”, ma qualcosa si è inceppato. Riprova.",
-                       "identity": "omnicore"}
-            ok = all(s.get("ok", False) for s in res.get("steps", []) if s.get("step") != "face") \
-                if res.get("steps") else False
+            res = _agent_turn(text)
+            trace = res.get("trace", [])
+            ok = all(t.get("ok", False) for t in trace if t.get("name") != "respond") \
+                if trace else False
             sid = _log(body.get("session_id") or None,
-                       {"text": text, "intent": res.get("intent"),
-                        "handler": res.get("handler"), "ok": ok,
-                        "answer": str(res.get("answer", ""))[:2000],
-                        "summary": "; ".join(
-                            f"{s.get('step')}:{'ok' if s.get('ok') else 'ko'}"
-                            for s in res.get("steps", []))})
+                       {"text": text, "intent": res.get("intent", "chat"),
+                        "handler": "agent", "ok": ok,
+                        "answer": str(res.get("reply", "") or res.get("error", ""))[:2000],
+                        "summary": _trace_summary(res)})
             self._json({**res, "session_id": sid})
             return
         self._json({"error": "not found"}, 404)
