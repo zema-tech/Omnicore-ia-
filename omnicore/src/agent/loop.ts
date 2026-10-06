@@ -5,6 +5,7 @@ import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
 import { resolvePlan } from "./plan.ts";
 import { decideVerify } from "../decide/index.ts";
 import { DESTRUCTIVE_TOOLS, attemptKey } from "../decide/rules.ts";
+import { moduleGates } from "../config.ts";
 import { synthesize } from "../mind/synth.ts";
 import type { FuseStep } from "../pipeline.ts";
 
@@ -43,14 +44,17 @@ export async function runAgent(
   userText: string,
   opts: { directory?: string } = {},
 ): Promise<AgentResult> {
-  const { intent, calls, planner } = await resolvePlan(userText);
+  const { intent, calls: planned, planner } = await resolvePlan(userText);
+  const gates = moduleGates();
+  // Profilo: world.exec esiste solo in medium/alt.
+  const calls = planned.filter((c) => c.name !== "world.exec" || gates.world);
   const trace: ToolResult[] = [];
   const failedKeys: string[] = [];
 
   for (const call of calls) {
     // Decide: le azioni distruttive passano da verify (cascata rules→jev→clm).
     if ((DESTRUCTIVE_TOOLS as string[]).includes(call.name) && call.args?.confirm !== true) {
-      const v = await decideVerify(call, { state: userText, recentAttempts: failedKeys });
+      const v = await decideVerify(call, { state: userText, recentAttempts: failedKeys, allowClm: gates.clm });
       if (v.verdict.verdict !== "allow") {
         trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
         continue;

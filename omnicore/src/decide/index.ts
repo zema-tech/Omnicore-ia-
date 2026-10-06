@@ -17,8 +17,12 @@ export interface DecideVerify {
   level: DecideLevel;
 }
 
-/** Rank a cascata su nomi tool. */
-export async function decideRank(state: string, candidates: { name: string; desc: string }[]): Promise<DecideRank> {
+/** Rank a cascata su nomi tool. opts.clm=false nel profilo light/medium. */
+export async function decideRank(
+  state: string,
+  candidates: { name: string; desc: string }[],
+  opts: { allowClm?: boolean } = {},
+): Promise<DecideRank> {
   const names = candidates.map((c) => c.name);
   // Livello 2: Jev (serve chiave; errore -> si degrada)
   try {
@@ -27,12 +31,14 @@ export async function decideRank(state: string, candidates: { name: string; desc
   } catch {
     /* degrada */
   }
-  // Livello 3: CLM (serve GPU; errore -> si degrada)
-  try {
-    const r = await rankRemote("clm", state, candidates);
-    if (r.ranking.length) return { ranking: r.ranking, level: "clm" };
-  } catch {
-    /* degrada */
+  // Livello 3: CLM (serve GPU + profilo alt; errore -> si degrada)
+  if (opts.allowClm !== false) {
+    try {
+      const r = await rankRemote("clm", state, candidates);
+      if (r.ranking.length) return { ranking: r.ranking, level: "clm" };
+    } catch {
+      /* degrada */
+    }
   }
   // Livello 1: regole locali (sempre)
   return { ranking: rankLocal(names), level: "rules" };
@@ -41,7 +47,7 @@ export async function decideRank(state: string, candidates: { name: string; desc
 /** Verify a cascata su un'azione. Conferma esplicita vince (Tappa 6 la rende obbligatoria). */
 export async function decideVerify(
   call: ToolCall,
-  ctx: { state?: string; confirm?: boolean; recentAttempts?: string[]; backendDown?: string[] } = {},
+  ctx: { state?: string; confirm?: boolean; recentAttempts?: string[]; backendDown?: string[]; allowClm?: boolean } = {},
 ): Promise<DecideVerify> {
   const state = ctx.state ?? `${call.name} ${JSON.stringify(call.args ?? {})}`.slice(0, 500);
   // Livello 2: Jev
@@ -54,14 +60,16 @@ export async function decideVerify(
   } catch {
     /* degrada */
   }
-  // Livello 3: CLM
-  try {
-    const r = await verifyRemote("clm", state, `${call.name}`);
-    if (r.verdict.verdict === "deny") return { verdict: r.verdict, level: "clm" };
-    const local = verifyLocal(call, ctx);
-    return local.verdict === "allow" ? { verdict: r.verdict, level: "clm" } : { verdict: local, level: "rules" };
-  } catch {
-    /* degrada */
+  // Livello 3: CLM (solo profilo alt)
+  if (ctx.allowClm !== false) {
+    try {
+      const r = await verifyRemote("clm", state, `${call.name}`);
+      if (r.verdict.verdict === "deny") return { verdict: r.verdict, level: "clm" };
+      const local = verifyLocal(call, ctx);
+      return local.verdict === "allow" ? { verdict: r.verdict, level: "clm" } : { verdict: local, level: "rules" };
+    } catch {
+      /* degrada */
+    }
   }
   // Livello 1: regole locali (sempre)
   return { verdict: verifyLocal(call, ctx), level: "rules" };

@@ -24,6 +24,10 @@
     "clmBaseUrl": "http://127.0.0.1:8700",
     "note": "cascata rules -> jev (serve TYPESAFE_API_KEY da env) -> clm (serve GPU + clm-serve). Livelli mancanti degradano senza errori."
   },
+  "profile": {
+    "active": "light",
+    "note": "light: API + memoria a file, niente GPU (world off, clm off). medium: +mondo (world on, serve Mirage). alt: +CLM (serve GPU + clm-serve). Stesso core, cambiano solo i moduli."
+  },
   "pipeline": {
     "steps": ["brain(hermes.recall, best-effort)", "hands(opencode, solo se intent=code)", "face(openclaw.status+cron, best-effort, mai fatale)", "mind(sintesi LLM o euristica -> answer unica, identita omnicore)"]
   }

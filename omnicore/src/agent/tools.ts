@@ -5,6 +5,7 @@ import { memory } from "../faculties/memory.ts";
 import { code } from "../faculties/code.ts";
 import { channel } from "../faculties/channel.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
+import { moduleGates } from "../config.ts";
 
 export type ToolName =
   | "memory.search"
@@ -73,6 +74,15 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           : { name: call.name, ok: false, via: "channel(openclaw)", error: String((r.detail as any)?.hint ?? r.detail) };
       }
       case "world.exec": {
+        // Profilo: il mondo esiste solo in medium/alt.
+        if (!moduleGates().world) {
+          return {
+            name: call.name,
+            ok: false,
+            via: "world",
+            error: "profilo light: mondo disabilitato (serve medium o alt)",
+          };
+        }
         // Stub: Mirage non ancora collegato. Quando vendors/mirage è attivo, qui va Workspace.execute.
         return {
           name: call.name,
@@ -89,7 +99,9 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         if (!list.length) {
           return { name: call.name, ok: false, via: "decide", error: "decide.rank vuole candidates: [{name, desc}]" };
         }
-        const r = await decideRank(String(args.state ?? ctx.text ?? ""), list);
+        const r = await decideRank(String(args.state ?? ctx.text ?? ""), list, {
+          allowClm: moduleGates().clm,
+        });
         return { name: call.name, ok: true, via: `decide(${r.level})`, data: r.ranking };
       }
       case "decide.verify": {
@@ -99,7 +111,7 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         }
         const r = await decideVerify(
           { name: action.name as ToolCall["name"], args: (action.args ?? {}) as Record<string, unknown> },
-          { state: String(args.state ?? ctx.text ?? ""), confirm: args.confirm === true },
+          { state: String(args.state ?? ctx.text ?? ""), confirm: args.confirm === true, allowClm: moduleGates().clm },
         );
         return { name: call.name, ok: r.verdict.verdict === "allow", via: `decide(${r.level})`, data: r.verdict };
       }

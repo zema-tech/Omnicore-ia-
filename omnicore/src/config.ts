@@ -18,6 +18,12 @@ export interface OmnicoreConfig {
   llmLocalModel: string;
   decideJevUrl: string;
   decideClmUrl: string;
+  profile: "light" | "medium" | "alt";
+}
+
+export interface ModuleGates {
+  world: boolean;
+  clm: boolean;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,5 +58,18 @@ export function loadConfig(): OmnicoreConfig {
     llmLocalModel: process.env["OMNICORE_LLM_LOCAL_MODEL"] ?? j?.llm?.localModel ?? "llama3.1",
     decideJevUrl: process.env["TYPESAFE_BASE_URL"] ?? j?.decide?.jevBaseUrl ?? "https://api.typesafe.ai",
     decideClmUrl: process.env["CLM_BASE_URL"] ?? j?.decide?.clmBaseUrl ?? "http://127.0.0.1:8700",
+    profile: (() => {
+      const p = process.env["OMNICORE_PROFILE"] ?? j?.profile?.active ?? "light";
+      return p === "alt" ? "alt" : p === "medium" ? "medium" : "light";
+    })(),
+  };
+}
+
+/** Stesso core, moduli diversi: light = API + memoria a file, medium +mondo, alt +CLM. */
+export function moduleGates(cfg?: OmnicoreConfig): ModuleGates {
+  const p = cfg?.profile ?? loadConfig().profile;
+  return {
+    world: p === "medium" || p === "alt",
+    clm: p === "alt",
   };
 }
