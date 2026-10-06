@@ -2,8 +2,10 @@
 // Non è più "route → prodotto". È: osserva → scegli tool Omnicore → agisci → rispondi.
 // Quando colleghi un LLM, sostituisci plan() con una chiamata modello che emette ToolCall[].
 import { route } from "../router.ts";
-import { SYSTEM_PROMPT, banner, OMNICORE_NAME } from "./identity.ts";
+import { SYSTEM_PROMPT, banner } from "./identity.ts";
 import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
+import { synthesize } from "../mind/synth.ts";
+import type { FuseStep } from "../pipeline.ts";
 
 export interface AgentTurn {
   role: "user" | "omnicore" | "tool";
@@ -39,38 +41,20 @@ export function plan(userText: string): { intent: string; calls: ToolCall[] } {
   return { intent, calls };
 }
 
-function synthesize(userText: string, intent: string, trace: ToolResult[]): string {
-  const lines: string[] = [];
-  lines.push(`${OMNICORE_NAME} — intent percepito: ${intent}`);
-
-  for (const t of trace) {
-    if (t.name === "respond") continue;
-    if (t.ok) {
-      const preview =
-        typeof t.data === "string"
-          ? t.data.slice(0, 280)
-          : JSON.stringify(t.data)?.slice(0, 280) ?? "ok";
-      lines.push(`• ${t.name} [${t.via}]: ${preview}`);
-    } else {
-      lines.push(`• ${t.name} [${t.via}]: offline/errore — ${t.error ?? "?"}`);
-    }
-  }
-
-  if (intent === "code") {
-    const code = trace.find((t) => t.name === "code.run");
-    if (code?.ok) lines.push("Ho lavorato sul task di codice con il motore coding interno.");
-    else lines.push("Il motore coding non era raggiungibile; riprova con opencode serve o la CLI.");
-  } else if (intent === "memory" || intent === "chat") {
-    lines.push("Ho consultato la memoria interna. Dimmi se vuoi approfondire una sessione.");
-  } else if (intent === "ops") {
-    lines.push("Ho controllato lo stato della presenza/canali.");
-  }
-
-  lines.push(`(richiesta: ${userText.slice(0, 120)})`);
-  return lines.join("\n");
+/** Traccia tool → step minds: la sintesi parla una sola lingua. */
+function toSteps(trace: ToolResult[]): FuseStep[] {
+  const pick = (n: string) => trace.find((t) => t.name === n);
+  const mem = pick("memory.search") ?? pick("memory.read");
+  const cod = pick("code.run");
+  const ch = pick("channel.announce") ?? pick("channel.status");
+  const step = (s: "brain" | "hands" | "face", t: ToolResult | undefined): FuseStep =>
+    t
+      ? { step: s, via: t.via, ok: t.ok, ...(t.ok ? { result: t.data } : { error: t.error ?? "?" }) }
+      : { step: s, via: "omnicore [skip]", ok: true, result: "skipped" };
+  return [step("brain", mem), step("hands", cod), step("face", ch)];
 }
 
-/** Un turno agente completo. */
+/** Un turno agente completo: plan → facoltà → sintesi naturale (LLM o euristica). */
 export async function runAgent(
   userText: string,
   opts: { directory?: string } = {},
@@ -83,8 +67,8 @@ export async function runAgent(
     trace.push(result);
   }
 
-  const reply = synthesize(userText, intent, trace);
-  const respond = await runTool({ name: "respond", args: { text: reply } }, { text: userText });
+  const mind = await synthesize(userText, intent, toSteps(trace));
+  const respond = await runTool({ name: "respond", args: { text: mind.answer } }, { text: userText });
   trace.push(respond);
 
   return {
@@ -93,7 +77,7 @@ export async function runAgent(
     intent,
     plan: calls,
     trace,
-    reply,
+    reply: mind.answer,
     system: SYSTEM_PROMPT.slice(0, 200) + "…",
   };
 }

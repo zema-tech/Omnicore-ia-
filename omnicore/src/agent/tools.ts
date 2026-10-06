@@ -1,9 +1,9 @@
 // Tool surface unificata Omnicore.
-// L'agente vede solo questi nomi. Gli adapter vendor restano nascosti.
-import { hermes } from "../adapters/hermes.ts";
-import { opencode } from "../adapters/opencode.ts";
-import { openclaw } from "../adapters/openclaw.ts";
-import { loadConfig } from "../config.ts";
+// L'agente vede solo questi nomi. Dietro ci sono le FACOLTÀ (capacità fuse),
+// non i vendor: gli adapter restano nascosti dentro src/faculties/.
+import { memory } from "../faculties/memory.ts";
+import { code } from "../faculties/code.ts";
+import { channel } from "../faculties/channel.ts";
 
 export type ToolName =
   | "memory.search"
@@ -33,9 +33,8 @@ function err(e: unknown): string {
   return String(e).slice(0, 400);
 }
 
-/** Esegue un tool Omnicore mappandolo all'organo interno. */
+/** Esegue un tool Omnicore mappandolo alla facoltà interna. */
 export async function runTool(call: ToolCall, ctx: { directory?: string; text?: string } = {}): Promise<ToolResult> {
-  const cfg = loadConfig();
   const args = call.args ?? {};
 
   try {
@@ -43,60 +42,34 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "memory.search": {
         const q = String(args.query ?? args.search ?? ctx.text ?? "");
         const limit = Number(args.limit ?? 5);
-        const data = await hermes.recall(q, limit, {
-          python: cfg.hermesPython,
-          hermesDir: cfg.hermesDir,
-        });
-        return { name: call.name, ok: true, via: "memory(hermes)", data };
+        const { hits, via } = await memory.search(q, limit);
+        return { name: call.name, ok: true, via, data: hits };
       }
       case "memory.read": {
         const key = String(args.session_key ?? args.key ?? "");
         const limit = Number(args.limit ?? 50);
-        const data = await hermes.read(key, limit, {
-          python: cfg.hermesPython,
-          hermesDir: cfg.hermesDir,
-        });
-        return { name: call.name, ok: true, via: "memory(hermes)", data };
+        const data = await memory.read(key, limit);
+        return { name: call.name, ok: true, via: "memory(hermes-read)", data };
       }
       case "code.run": {
         const prompt = String(args.prompt ?? ctx.text ?? "");
         const directory = (args.directory as string | undefined) ?? ctx.directory;
-        try {
-          const data = await opencode.promptServer(
-            prompt,
-            { baseUrl: cfg.opencodeUrl, password: cfg.opencodePassword || undefined },
-            { directory },
-          );
-          return { name: call.name, ok: true, via: "code(opencode-serve)", data };
-        } catch (e1) {
-          try {
-            const cli = await opencode.promptCli(prompt, {}, { directory });
-            return { name: call.name, ok: true, via: "code(opencode-cli)", data: cli.slice(0, 4000) };
-          } catch (e2) {
-            return {
-              name: call.name,
-              ok: false,
-              via: "code(opencode)",
-              error: `${err(e1)} | cli: ${err(e2)}`,
-            };
-          }
-        }
+        const r = await code.run(prompt, { directory });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.output }
+          : { name: call.name, ok: false, via: r.via, error: r.output };
       }
       case "channel.status": {
-        const data = await openclaw.status({
-          baseUrl: cfg.openclawUrl,
-          token: cfg.openclawToken || undefined,
-        });
+        const data = await channel.status();
         return { name: call.name, ok: true, via: "channel(openclaw)", data };
       }
       case "channel.announce": {
         const message = String(args.message ?? ctx.text ?? "");
         const targets = Array.isArray(args.targets) ? (args.targets as string[]) : [];
-        const data = await openclaw.announce(
-          { baseUrl: cfg.openclawUrl, token: cfg.openclawToken || undefined },
-          targets.length ? `[to:${targets.join(",")}] ${message}` : message,
-        );
-        return { name: call.name, ok: true, via: "channel(openclaw)", data };
+        const r = await channel.announce(message, targets);
+        return r.ok
+          ? { name: call.name, ok: true, via: "channel(openclaw)", data: r.detail }
+          : { name: call.name, ok: false, via: "channel(openclaw)", error: String((r.detail as any)?.hint ?? r.detail) };
       }
       case "world.exec": {
         // Stub: Mirage non ancora collegato. Quando vendors/mirage è attivo, qui va Workspace.execute.

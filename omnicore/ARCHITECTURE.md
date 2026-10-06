@@ -17,8 +17,22 @@ L'utente parla solo con Omnicore. I vendor non compaiono come prodotti in faccia
 ## Nucleo (`src/agent/`)
 
 - `identity.ts` — chi è Omnicore (system prompt)
-- `tools.ts` — tool surface unificata + dispatch agli organi
-- `loop.ts` — turno agente: plan → tool → synthesize
+- `tools.ts` — tool surface unificata + dispatch alle facoltà
+- `loop.ts` — turno agente: plan → facoltà → sintesi (mente)
+
+## Facoltà (`src/faculties/`, mirror `omnicore_py/faculties/`)
+
+Ogni facoltà è una capacità **fusa** con funzioni pulite. Dentro fonde vendor
++ nativo; fuori nessuno sa che esistono Hermes/OpenCode/OpenClaw:
+
+- `memory.ts` — `search()` fonde memoria nativa + Hermes + sessioni;
+  `read()` lettura profonda; `remember()` fatti espliciti
+- `code.ts` — `run()` con fallback serve→CLI normalizzato in `{ok, via, output}`
+- `channel.ts` — `status()` gateway; `announce()` best-effort (mai throw)
+
+Gli `adapters/` restano il confine grezzo coi vendor (mai chiamati
+direttamente da pipeline o loop). Se un motore viene sostituito, cambia solo
+la facoltà corrispondente.
 
 Il `plan()` attuale è deterministico (router leggero). Sostituibile con:
 
