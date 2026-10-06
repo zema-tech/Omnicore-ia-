@@ -19,6 +19,11 @@
     "localModel": "llama3.1",
     "note": "provider api (default, consigliato: baseUrl OpenAI-compatibile + OMNICORE_LLM_API_KEY da env, mai nel json) oppure local (solo Ollama, mai cloud). Senza backend: piano keyword + sintesi euristica offline."
   },
+  "decide": {
+    "jevBaseUrl": "https://api.typesafe.ai",
+    "clmBaseUrl": "http://127.0.0.1:8700",
+    "note": "cascata rules -> jev (serve TYPESAFE_API_KEY da env) -> clm (serve GPU + clm-serve). Livelli mancanti degradano senza errori."
+  },
   "pipeline": {
     "steps": ["brain(hermes.recall, best-effort)", "hands(opencode, solo se intent=code)", "face(openclaw.status+cron, best-effort, mai fatale)", "mind(sintesi LLM o euristica -> answer unica, identita omnicore)"]
   }

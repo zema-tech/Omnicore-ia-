@@ -4,6 +4,7 @@
 import { memory } from "../faculties/memory.ts";
 import { code } from "../faculties/code.ts";
 import { channel } from "../faculties/channel.ts";
+import { decideRank, decideVerify } from "../decide/index.ts";
 
 export type ToolName =
   | "memory.search"
@@ -80,15 +81,27 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           error: "motore world non configurato — aggiungi vendors/mirage e implementa l'adapter",
         };
       }
-      case "decide.rank":
+      case "decide.rank": {
+        const raw = args.candidates ?? args.candidati ?? [];
+        const list = (Array.isArray(raw) ? raw : []).map((c) =>
+          typeof c === "string" ? { name: c, desc: c } : { name: String((c as any).name ?? ""), desc: String((c as any).desc ?? (c as any).name ?? "") },
+        ).filter((c) => c.name);
+        if (!list.length) {
+          return { name: call.name, ok: false, via: "decide", error: "decide.rank vuole candidates: [{name, desc}]" };
+        }
+        const r = await decideRank(String(args.state ?? ctx.text ?? ""), list);
+        return { name: call.name, ok: true, via: `decide(${r.level})`, data: r.ranking };
+      }
       case "decide.verify": {
-        // Stub: CLM non ancora collegato. Quando clm-serve è up, qui va POST system-one.
-        return {
-          name: call.name,
-          ok: false,
-          via: "decide(clm)",
-          error: "motore decide non configurato — richiede CLM (GPU) o fallback euristico nel loop",
-        };
+        const action = (args.azione ?? args.action ?? {}) as { name?: unknown; args?: unknown };
+        if (typeof action.name !== "string" || !action.name) {
+          return { name: call.name, ok: false, via: "decide", error: "decide.verify vuole action: {name, args}" };
+        }
+        const r = await decideVerify(
+          { name: action.name as ToolCall["name"], args: (action.args ?? {}) as Record<string, unknown> },
+          { state: String(args.state ?? ctx.text ?? ""), confirm: args.confirm === true },
+        );
+        return { name: call.name, ok: r.verdict.verdict === "allow", via: `decide(${r.level})`, data: r.verdict };
       }
       case "respond": {
         return {

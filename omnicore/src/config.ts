@@ -16,6 +16,8 @@ export interface OmnicoreConfig {
   llmModel: string;
   llmProvider: "api" | "local";
   llmLocalModel: string;
+  decideJevUrl: string;
+  decideClmUrl: string;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -48,5 +50,7 @@ export function loadConfig(): OmnicoreConfig {
     llmModel: process.env["OMNICORE_LLM_MODEL"] ?? j?.llm?.model ?? "omnicore-fusion",
     llmProvider: (process.env["OMNICORE_LLM_PROVIDER"] ?? j?.llm?.provider ?? "api") === "local" ? "local" : "api",
     llmLocalModel: process.env["OMNICORE_LLM_LOCAL_MODEL"] ?? j?.llm?.localModel ?? "llama3.1",
+    decideJevUrl: process.env["TYPESAFE_BASE_URL"] ?? j?.decide?.jevBaseUrl ?? "https://api.typesafe.ai",
+    decideClmUrl: process.env["CLM_BASE_URL"] ?? j?.decide?.clmBaseUrl ?? "http://127.0.0.1:8700",
   };
 }
