@@ -8,11 +8,19 @@ L'utente parla solo con Omnicore. I vendor non compaiono come prodotti in faccia
 | Organo Omnicore | Motore (vendor) | Funzione |
 |-----------------|-----------------|----------|
 | **memory.*** | Hermes Agent | memoria, skill, recall |
-| **code.*** | OpenCode | coding agency |
+| **code.*** | NATIVO (`faculties/native_fs.ts`) — OpenCode solo boost opzionale | file, shell, coding |
 | **channel.*** | OpenClaw | presenza, canali, ops |
 | **world.*** | Mirage (da collegare) | VFS / terminal virtuale |
 | **decide.*** | CLM (da collegare) | System One: rank/verify azioni |
 | **respond** | nucleo | risposta all'utente |
+
+## Facoltà codice nativa
+
+`code.run` è il path felice: prompt con lettura/scrittura/shell riconoscibili
+vanno al nativo (`code(native-read|write|shell)`, jail su `OMNICORE_WORKSPACE`
+o cwd, blocklist comandi, timeout 30s). Solo i task generici usano OpenCode
+(`code(opencode-serve|cli)`) come boost opzionale. Tool precisi: `code.read`,
+`code.write`, `code.shell` (scritture con conferma, Tappa 6).
 
 ## Nucleo (`src/agent/`)
 

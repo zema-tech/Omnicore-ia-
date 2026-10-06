@@ -23,7 +23,7 @@ export function attemptKey(call: ToolCall): string {
   return `${call.name}?${sorted}`;
 }
 
-const DESTRUCTIVE = new Set(["code.run", "channel.announce", "world.exec"]);
+const DESTRUCTIVE = new Set(["code.run", "code.write", "code.shell", "channel.announce", "world.exec"]);
 
 /** Verifica locale di un'azione. Mai throw. */
 export function verifyLocal(
@@ -59,7 +59,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
     seen.add(name);
     if (name === "respond" || name === "memory.search" || name === "memory.note_search") {
       out.push({ name, score: 10, reason: "banale/sicuro" });
-    } else if (name === "memory.read" || name === "channel.status" || name === "memory.note_save") {
+    } else if (name === "memory.read" || name === "channel.status" || name === "memory.note_save" || name === "code.read") {
       out.push({ name, score: 5, reason: "sola lettura o scrittura propria" });
     } else if (DESTRUCTIVE.has(name)) {
       out.push({ name, score: 1, reason: "distruttivo: per ultimo" });

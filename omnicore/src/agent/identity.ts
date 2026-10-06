@@ -20,8 +20,9 @@ Principi:
 5. Se un organo è offline, degrada in modo onesto e continua con ciò che funziona.
 
 Tool disponibili (nomi stabili Omnicore):
-- memory.search / memory.read
-- code.run
+- memory.search / memory.read / memory.note_save / memory.note_search
+- code.run (alto livello: nativo se possibile, else OpenCode)
+- code.read / code.write / code.shell (mani native nel workspace)
 - channel.status / channel.announce
 - world.exec (Mirage, se configurato)
 - decide.rank / decide.verify (CLM, se configurato)

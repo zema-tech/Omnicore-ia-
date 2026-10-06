@@ -4,6 +4,7 @@
 import { memory } from "../faculties/memory.ts";
 import { code } from "../faculties/code.ts";
 import { channel } from "../faculties/channel.ts";
+import { readFile, writeFile, runShell } from "../faculties/native_fs.ts";
 import { saveNote, searchNotes } from "../vault/notes.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
 import { moduleGates } from "../config.ts";
@@ -14,6 +15,9 @@ export type ToolName =
   | "memory.note_save"
   | "memory.note_search"
   | "code.run"
+  | "code.read"
+  | "code.write"
+  | "code.shell"
   | "channel.status"
   | "channel.announce"
   | "world.exec"
@@ -79,6 +83,30 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           return { name: call.name, ok: false, via: "code", needsConfirm: true, preview: prompt.slice(0, 300) };
         }
         const r = await code.run(prompt, { directory });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.output }
+          : { name: call.name, ok: false, via: r.via, error: r.output };
+      }
+      case "code.read": {
+        const r = readFile(String(args.path ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.output }
+          : { name: call.name, ok: false, via: r.via, error: r.output };
+      }
+      case "code.write": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "code", needsConfirm: true, preview: `${args.path ?? ""} (${String(args.content ?? "").length} char)` };
+        }
+        const r = writeFile(String(args.path ?? ""), String(args.content ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.output }
+          : { name: call.name, ok: false, via: r.via, error: r.output };
+      }
+      case "code.shell": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "code", needsConfirm: true, preview: String(args.cmd ?? "").slice(0, 300) };
+        }
+        const r = await runShell(String(args.cmd ?? ""), { cwd: (args.cwd as string | undefined) ?? ctx.directory });
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.output }
           : { name: call.name, ok: false, via: r.via, error: r.output };
@@ -166,7 +194,10 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "memory.read", description: "Leggi una sessione/memoria per chiave" },
   { name: "memory.note_save", description: "Salva una nota nel vault (titolo + testo)" },
   { name: "memory.note_search", description: "Cerca nelle note del vault" },
-  { name: "code.run", description: "Esegui un task di coding sul progetto" },
+  { name: "code.run", description: "Task coding alto livello (nativo se possibile, else OpenCode)" },
+  { name: "code.read", description: "Leggi un file del workspace" },
+  { name: "code.write", description: "Scrivi un file nel workspace (conferma)" },
+  { name: "code.shell", description: "Comando shell nel workspace (conferma)" },
   { name: "channel.status", description: "Stato canali / gateway di presenza" },
   { name: "channel.announce", description: "Annuncio / invio su canali" },
   { name: "world.exec", description: "Comando nel mondo virtuale (Mirage)" },
