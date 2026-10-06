@@ -19,6 +19,14 @@ const short = (v: unknown, n = 600) => {
   return s.length <= n ? s : s.slice(0, n) + "…";
 };
 
+/** Formatta il risultato presenza: lista canali [{id, ok, detail}] o testo grezzo. */
+function formatFace(result: unknown): string {
+  if (Array.isArray(result) && result.every((x: any) => x && typeof x.id === "string")) {
+    return result.map((x: any) => `${x.id}: ${x.ok ? "ok" : "ko"}${x.detail ? ` (${String(x.detail).slice(0, 80)})` : ""}`).join(", ");
+  }
+  return short(result, 300);
+}
+
 export function heuristicAnswer(text: string, intent: string, steps: FuseStep[]): string {
   const brain = step(steps, "brain"), hands = step(steps, "hands"), face = step(steps, "face");
   const t = text.trim();
@@ -38,9 +46,9 @@ export function heuristicAnswer(text: string, intent: string, steps: FuseStep[])
     else if (!brainEmpty) parts.push(`Ho cercato nella mia memoria: ${short(brain!.result)}`);
     else parts.push("Ho cercato nella memoria ma non ho trovato nulla di rilevante — me lo racconti?");
   } else if (intent === "ops") {
-    if (face?.ok && face.result !== "skipped") parts.push(`Gateway operativo: ${short(face.result)}`);
+    if (face?.ok && face.result !== "skipped") parts.push(`Presenza: ${formatFace(face.result)}`);
     else if (face?.ok === false) parts.push("Il gateway al momento non risponde, ma resto operativa: posso preparare comandi e cron da applicare appena torna.");
-    else parts.push("Sul fronte operativo non ho eseguito controlli per questa richiesta — dimmi cosa vuoi fare: stato gateway, annuncio o pianificazione.");
+    else parts.push("Sul fronte operativo non ho eseguito controlli per questa richiesta — dimmi cosa vuoi fare: stato canali, annuncio o pianificazione.");
   } else {
     if (brain?.ok && brain.result && !["", "[]", "{}", "null"].includes(String(brain.result).trim())) parts.push(`Ricordando ciò che so di te (${short(brain.result, 300)}), `);
     parts.push(`su “${t}”: ti ascolto — vuoi che approfondisca, scriva qualcosa, o operi sul gateway?`);

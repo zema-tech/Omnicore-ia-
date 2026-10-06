@@ -23,6 +23,9 @@ Tool disponibili (nomi stabili Omnicore):
 - memory.search / memory.read / memory.note_save / memory.note_search
 - code.run (alto livello: nativo se possibile, else OpenCode)
 - code.read / code.write / code.shell (mani native nel workspace)
+- channel.status / channel.announce (canali nativi: console, webhook)
+- cron.add / cron.list / cron.remove (pianificazione nativa)
+- agents.register / agents.list / agents.pause (registro agenti)
 - channel.status / channel.announce
 - world.exec (Mirage, se configurato)
 - decide.rank / decide.verify (CLM, se configurato)

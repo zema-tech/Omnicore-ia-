@@ -40,6 +40,8 @@ Tool ammessi: memory.search {query, limit}, memory.read {session_key, limit},
 memory.note_save {title, body}, memory.note_search {query, limit},
 code.run {prompt}, code.read {path}, code.write {path, content}, code.shell {cmd},
 channel.status {}, channel.announce {message, targets},
+cron.add {name, schedule, payload}, cron.list {}, cron.remove {name},
+agents.register {name, skills}, agents.list {}, agents.pause {name},
 world.exec {cmd}, decide.rank {candidati}, decide.verify {azione}, respond vietato.
 Scegli solo tool utili alla richiesta; per saluti basta memory.search.`;
 

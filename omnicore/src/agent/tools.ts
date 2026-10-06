@@ -3,7 +3,9 @@
 // non i vendor: gli adapter restano nascosti dentro src/faculties/.
 import { memory } from "../faculties/memory.ts";
 import { code } from "../faculties/code.ts";
-import { channel } from "../faculties/channel.ts";
+import { channels } from "../modules/channels.ts";
+import { cron } from "../modules/cron.ts";
+import { agents } from "../modules/agents.ts";
 import { readFile, writeFile, runShell } from "../faculties/native_fs.ts";
 import { saveNote, searchNotes } from "../vault/notes.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
@@ -20,6 +22,12 @@ export type ToolName =
   | "code.shell"
   | "channel.status"
   | "channel.announce"
+  | "cron.add"
+  | "cron.list"
+  | "cron.remove"
+  | "agents.register"
+  | "agents.list"
+  | "agents.pause"
   | "world.exec"
   | "decide.rank"
   | "decide.verify"
@@ -112,8 +120,7 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           : { name: call.name, ok: false, via: r.via, error: r.output };
       }
       case "channel.status": {
-        const data = await channel.status();
-        return { name: call.name, ok: true, via: "channel(openclaw)", data };
+        return { name: call.name, ok: true, via: "channel(native)", data: channels.status() };
       }
       case "channel.announce": {
         const message = String(args.message ?? ctx.text ?? "");
@@ -122,10 +129,44 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         if (args.confirm !== true) {
           return { name: call.name, ok: false, via: "channel", needsConfirm: true, preview: (targets.length ? `[to:${targets.join(",")}] ` : "") + message.slice(0, 300) };
         }
-        const r = await channel.announce(message, targets);
+        const r = await channels.send(message, targets);
         return r.ok
-          ? { name: call.name, ok: true, via: "channel(openclaw)", data: r.detail }
-          : { name: call.name, ok: false, via: "channel(openclaw)", error: String((r.detail as any)?.hint ?? r.detail) };
+          ? { name: call.name, ok: true, via: r.via, data: r.detail }
+          : { name: call.name, ok: false, via: r.via, error: r.detail };
+      }
+      case "cron.add": {
+        try {
+          const job = cron.add(String(args.name ?? ""), (args.schedule ?? {}) as never, (args.payload ?? {}) as Record<string, unknown>);
+          return { name: call.name, ok: true, via: "cron", data: job };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "cron", error: String(e).slice(0, 200) };
+        }
+      }
+      case "cron.list": {
+        return { name: call.name, ok: true, via: "cron", data: cron.list() };
+      }
+      case "cron.remove": {
+        const done = cron.remove(String(args.name ?? ""));
+        return done
+          ? { name: call.name, ok: true, via: "cron", data: { removed: args.name } }
+          : { name: call.name, ok: false, via: "cron", error: `job non trovato: ${args.name}` };
+      }
+      case "agents.register": {
+        try {
+          const def = agents.register(String(args.name ?? ""), Array.isArray(args.skills) ? args.skills.map(String) : []);
+          return { name: call.name, ok: true, via: "agents", data: def };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "agents", error: String(e).slice(0, 200) };
+        }
+      }
+      case "agents.list": {
+        return { name: call.name, ok: true, via: "agents", data: agents.list() };
+      }
+      case "agents.pause": {
+        const done = agents.pause(String(args.name ?? ""));
+        return done
+          ? { name: call.name, ok: true, via: "agents", data: { paused: args.name } }
+          : { name: call.name, ok: false, via: "agents", error: `agente non trovato: ${args.name}` };
       }
       case "world.exec": {
         // Tappa 6: eseguire nel mondo vuole conferma esplicita.
@@ -198,8 +239,14 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "code.read", description: "Leggi un file del workspace" },
   { name: "code.write", description: "Scrivi un file nel workspace (conferma)" },
   { name: "code.shell", description: "Comando shell nel workspace (conferma)" },
-  { name: "channel.status", description: "Stato canali / gateway di presenza" },
-  { name: "channel.announce", description: "Annuncio / invio su canali" },
+  { name: "channel.status", description: "Stato canali nativi di presenza" },
+  { name: "channel.announce", description: "Annuncio / invio su canali (conferma)" },
+  { name: "cron.add", description: "Pianifica un job {name, schedule, payload}" },
+  { name: "cron.list", description: "Elenca i job pianificati" },
+  { name: "cron.remove", description: "Rimuovi un job {name}" },
+  { name: "agents.register", description: "Registra un agente {name, skills}" },
+  { name: "agents.list", description: "Elenca gli agenti registrati" },
+  { name: "agents.pause", description: "Mette in pausa un agente {name}" },
   { name: "world.exec", description: "Comando nel mondo virtuale (Mirage)" },
   { name: "decide.rank", description: "Rank azioni candidate (CLM System One)" },
   { name: "decide.verify", description: "Verifica un'azione (CLM)" },
