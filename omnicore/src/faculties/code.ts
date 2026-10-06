@@ -12,7 +12,9 @@ export interface CodeResult {
   output: string;
 }
 
-/** Esegue un task di coding. Mai throw: gli errori stanno in {ok:false}. */
+/** Esegue un task di coding. Mai throw: gli errori stanno in {ok:false}.
+ * Budget CLI dal path agente: OPENCODE_CLI_TIMEOUT_MS (default 60s, interattivo).
+ * Il default diretto della CLI resta 120s per usi batch. */
 export async function run(prompt: string, opts: { directory?: string } = {}): Promise<CodeResult> {
   const cfg = loadConfig();
   try {
@@ -25,13 +27,19 @@ export async function run(prompt: string, opts: { directory?: string } = {}): Pr
     return { ok: true, via: "code(opencode-serve)", output: output.slice(0, 4000) };
   } catch (e1) {
     try {
-      const cli = await opencode.promptCli(prompt, {}, { directory: opts.directory });
+      const cli = await opencode.promptCli(prompt, {}, {
+        directory: opts.directory,
+        timeoutMs: Number(process.env["OPENCODE_CLI_TIMEOUT_MS"] ?? "60000"),
+      });
+      if (/"type"\s*:\s*"error"/.test(cli.slice(0, 500))) {
+        return { ok: false, via: "code(opencode-cli)", output: "il motore coding ha risposto con un errore interno (serve configurazione modello/API). Avvia 'opencode serve' configurato o sistema la CLI, poi riprova." };
+      }
       return { ok: true, via: "code(opencode-cli)", output: cli.slice(0, 4000) };
     } catch (e2) {
       return {
         ok: false,
         via: "code(opencode)",
-        output: `mani non raggiungibili: ${String(e1).slice(0, 200)} | cli: ${String(e2).slice(0, 200)}. Avvia 'opencode serve' o installa la CLI, poi riprova.`,
+        output: "motore coding non disponibile ora (serve e CLI non raggiungibili o oltre budget tempo).",
       };
     }
   }

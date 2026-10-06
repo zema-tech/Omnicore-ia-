@@ -26,8 +26,9 @@ export async function promptServer(prompt: string, cfg: OpenCodeConfig, opts: { 
 }
 
 /** CLI fallback: `opencode run "<prompt>" --format json`. Streams JSON events. */
-export function promptCli(prompt: string, cfg: Partial<OpenCodeConfig> = {}, opts: { directory?: string } = {}): Promise<string> {
-  const bin = cfg.cli ?? "opencode";
+export function promptCli(prompt: string, cfg: Partial<OpenCodeConfig> = {}, opts: { directory?: string; timeoutMs?: number } = {}): Promise<string> {
+  const bin = cfg.cli ?? process.env["OPENCODE_CLI"] ?? "opencode";
+  const timeoutMs = opts.timeoutMs ?? Number(process.env["OPENCODE_CLI_TIMEOUT_MS"] ?? "120000");
   return new Promise((resolve, reject) => {
     const child = spawn(bin, ["run", prompt, "--format", "json"], {
       cwd: opts.directory ?? process.cwd(),
@@ -39,8 +40,8 @@ export function promptCli(prompt: string, cfg: Partial<OpenCodeConfig> = {}, opt
     child.on("error", reject);
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error("opencode run timeout"));
-    }, 120_000);
+      reject(new Error(`opencode run timeout dopo ${timeoutMs}ms`));
+    }, timeoutMs);
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(out);

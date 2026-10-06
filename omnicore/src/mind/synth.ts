@@ -27,7 +27,7 @@ export function heuristicAnswer(text: string, intent: string, steps: FuseStep[])
   const parts: string[] = [];
   if (intent === "code") {
     if (hands?.ok && hands.result !== "skipped") parts.push(`Ho lavorato sul codice: ${short(hands.result)}`);
-    else if (hands?.ok === false) parts.push(`Ho provato a lavorare sul codice ma le mani (OpenCode) non erano raggiungibili (${short(hands.error, 200)}). Dimmi il file o incolla l'errore e procedo a mano con te.`);
+    else if (hands?.ok === false) parts.push("Non sono riuscito a lavorare sul codice in autonomia (motore coding non disponibile ora). Incolla l'errore o descrivimi file e obiettivo e procediamo insieme, passo passo.");
     else parts.push("Ho capito che è un task di codice: descrivimi file/obiettivo e lo faccio.");
   } else if (intent === "memory") {
     const mem0 = recallMem(t);
