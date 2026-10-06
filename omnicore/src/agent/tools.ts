@@ -4,12 +4,15 @@
 import { memory } from "../faculties/memory.ts";
 import { code } from "../faculties/code.ts";
 import { channel } from "../faculties/channel.ts";
+import { saveNote, searchNotes } from "../vault/notes.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
 import { moduleGates } from "../config.ts";
 
 export type ToolName =
   | "memory.search"
   | "memory.read"
+  | "memory.note_save"
+  | "memory.note_search"
   | "code.run"
   | "channel.status"
   | "channel.announce"
@@ -52,6 +55,18 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         const limit = Number(args.limit ?? 50);
         const data = await memory.read(key, limit);
         return { name: call.name, ok: true, via: "memory(hermes-read)", data };
+      }
+      case "memory.note_save": {
+        try {
+          const file = saveNote(String(args.title ?? "Nota"), String(args.body ?? args.text ?? ""));
+          return { name: call.name, ok: true, via: "memory(vault)", data: { file } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "memory(vault)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "memory.note_search": {
+        const hits = searchNotes(String(args.query ?? ctx.text ?? ""), Number(args.limit ?? 5));
+        return { name: call.name, ok: true, via: "memory(vault)", data: hits };
       }
       case "code.run": {
         const prompt = String(args.prompt ?? ctx.text ?? "");
@@ -134,6 +149,8 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
 export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "memory.search", description: "Cerca nella memoria a lungo termine" },
   { name: "memory.read", description: "Leggi una sessione/memoria per chiave" },
+  { name: "memory.note_save", description: "Salva una nota nel vault (titolo + testo)" },
+  { name: "memory.note_search", description: "Cerca nelle note del vault" },
   { name: "code.run", description: "Esegui un task di coding sul progetto" },
   { name: "channel.status", description: "Stato canali / gateway di presenza" },
   { name: "channel.announce", description: "Annuncio / invio su canali" },

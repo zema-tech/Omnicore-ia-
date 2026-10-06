@@ -2,7 +2,9 @@ node_modules/
 dist/
 target/
 __pycache__/
-omnicore/data/
+# Stato locale Omnicore: ignorato, TRANNE il vault note (versionato con git).
+omnicore/data/*
+!omnicore/data/vault/
 *.log
 .env
 .env.local

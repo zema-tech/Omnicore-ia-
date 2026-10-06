@@ -57,10 +57,10 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       continue;
     }
     seen.add(name);
-    if (name === "respond" || name === "memory.search") {
+    if (name === "respond" || name === "memory.search" || name === "memory.note_search") {
       out.push({ name, score: 10, reason: "banale/sicuro" });
-    } else if (name === "memory.read" || name === "channel.status") {
-      out.push({ name, score: 5, reason: "sola lettura" });
+    } else if (name === "memory.read" || name === "channel.status" || name === "memory.note_save") {
+      out.push({ name, score: 5, reason: "sola lettura o scrittura propria" });
     } else if (DESTRUCTIVE.has(name)) {
       out.push({ name, score: 1, reason: "distruttivo: per ultimo" });
     } else {

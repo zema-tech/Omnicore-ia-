@@ -37,6 +37,7 @@ export function planKeyword(userText: string): { intent: string; calls: ToolCall
 const PLAN_SYSTEM = `Sei il pianificatore di Omnicore. Rispondi con SOLO JSON, nessun altro testo.
 Formato: [{"name": "<tool>", "args": {...}}], max 3 tool, in ordine di esecuzione.
 Tool ammessi: memory.search {query, limit}, memory.read {session_key, limit},
+memory.note_save {title, body}, memory.note_search {query, limit},
 code.run {prompt}, channel.status {}, channel.announce {message, targets},
 world.exec {cmd}, decide.rank {candidati}, decide.verify {azione}, respond vietato.
 Scegli solo tool utili alla richiesta; per saluti basta memory.search.`;

@@ -1,6 +1,7 @@
 // Sintesi Omnicore TS — mirror di omnicore_py/mind/synth.py.
 import { llmChat, llmStatus } from "./llm.ts";
 import { remember, recallMem, recentHistory } from "./memory.ts";
+import { recallFor } from "../vault/notes.ts";
 import type { FuseStep } from "../pipeline.ts";
 
 export const PERSONA =
@@ -45,6 +46,12 @@ export function heuristicAnswer(text: string, intent: string, steps: FuseStep[])
   }
   const memTail = intent === "memory" ? [] : recallMem(t);
   if (memTail.length) parts.push("Mi ricordo anche: " + memTail.slice(0, 2).map((f: any) => f.text).join("; ") + ".");
+  try {
+    const v = recallFor(t, 2);
+    if (v && !parts.join(" ").includes(v.slice(0, 40))) {
+      parts.push("Dalle mie note: " + v.split("\n").slice(0, 2).join(" ").slice(0, 300));
+    }
+  } catch { /* vault best-effort */ }
   return parts.join(" ").trim() || `Sono Omnicore: ho recepito “${t}”. Come vuoi procedere?`;
 }
 
@@ -54,7 +61,11 @@ export function buildLlmPrompt(text: string, intent: string, steps: FuseStep[]):
   const mem = recallMem(text);
   const h = hist.map((m: any) => `- ${String(m.text ?? "").slice(0, 160)}`).join("\n") || "(nessuna)";
   const m = mem.map((f: any) => `- ${String(f.text).slice(0, 160)}`).join("\n") || "(nessuna)";
-  return `Messaggio utente: ${text}\nIntento: ${intent}\nStoria recente:\n${h}\nMemoria rilevante:\n${m}\nMemoria Hermes: ${short(brain?.ok ? brain?.result : brain?.error, 700)}\nMani OpenCode: ${short(hands?.ok ? hands?.result : hands?.error, 900)}\nVolto OpenClaw: ${short(face?.ok ? face?.result : face?.error, 400)}\n\nRispondi come Omnicore in prima persona, senza citare gli step interni.`;
+  let vault = "(nessuna)";
+  try {
+    vault = recallFor(text, 3).slice(0, 900) || "(nessuna)";
+  } catch { /* vault best-effort */ }
+  return `Messaggio utente: ${text}\nIntento: ${intent}\nStoria recente:\n${h}\nMemoria rilevante:\n${m}\nNote vault:\n${vault}\nMemoria Hermes: ${short(brain?.ok ? brain?.result : brain?.error, 700)}\nMani OpenCode: ${short(hands?.ok ? hands?.result : hands?.error, 900)}\nVolto OpenClaw: ${short(face?.ok ? face?.result : face?.error, 400)}\n\nRispondi come Omnicore in prima persona, senza citare gli step interni.`;
 }
 
 export async function synthesize(text: string, intent: string, steps: FuseStep[]) {
