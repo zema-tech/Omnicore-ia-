@@ -36,7 +36,9 @@ export function heuristicAnswer(text: string, intent: string, steps: FuseStep[])
     else if (!brainEmpty) parts.push(`Ho cercato nella mia memoria: ${short(brain!.result)}`);
     else parts.push("Ho cercato nella memoria ma non ho trovato nulla di rilevante — me lo racconti?");
   } else if (intent === "ops") {
-    parts.push(face?.ok ? `Gateway operativo: ${short(face.result)}` : "Il gateway al momento non risponde, ma resto operativa: posso preparare comandi e cron da applicare appena torna.");
+    if (face?.ok && face.result !== "skipped") parts.push(`Gateway operativo: ${short(face.result)}`);
+    else if (face?.ok === false) parts.push("Il gateway al momento non risponde, ma resto operativa: posso preparare comandi e cron da applicare appena torna.");
+    else parts.push("Sul fronte operativo non ho eseguito controlli per questa richiesta — dimmi cosa vuoi fare: stato gateway, annuncio o pianificazione.");
   } else {
     if (brain?.ok && brain.result && !["", "[]", "{}", "null"].includes(String(brain.result).trim())) parts.push(`Ricordando ciò che so di te (${short(brain.result, 300)}), `);
     parts.push(`su “${t}”: ti ascolto — vuoi che approfondisca, scriva qualcosa, o operi sul gateway?`);
@@ -59,9 +61,21 @@ export async function synthesize(text: string, intent: string, steps: FuseStep[]
   try { remember(text, intent); } catch { /* best-effort */ }
   let llm: string | null = null;
   try { llm = await llmChat(PERSONA, buildLlmPrompt(text, intent, steps)); } catch { llm = null; }
-  if (llm) {
+  if (llm && !looksLikePlan(llm)) {
     const st = llmStatus();
     return { answer: llm, via: "llm", model: st.model || "ollama" };
   }
   return { answer: heuristicAnswer(text, intent, steps), via: "euristica", model: "omnicore-heuristic-0.1" };
+}
+
+/** Difesa: se il "testo" è un piano JSON scambiato per risposta, non usarlo. */
+function looksLikePlan(text: string): boolean {
+  const t = text.replace(/```json|```/g, "").trim();
+  if (!t.startsWith("[")) return false;
+  try {
+    const arr = JSON.parse(t);
+    return Array.isArray(arr) && arr.every((i: any) => typeof i?.name === "string");
+  } catch {
+    return false;
+  }
 }

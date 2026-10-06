@@ -50,4 +50,18 @@ describe("mind.synthesize", () => {
     assert.equal(m.via, "llm");
     assert.equal(m.answer, "RISPOSTA-FINTA");
   });
+
+  it("scarta la risposta LLM se e un piano JSON, non un testo", async () => {
+    fake = createServer((_req, res) => {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { content: '[{"name":"memory.search","args":{}}]' } }] }));
+    });
+    await new Promise<void>((res) => fake!.listen(0, "127.0.0.1", () => res()));
+    const port = (fake!.address() as any).port;
+    process.env["OMNICORE_LLM_BASE_URL"] = `http://127.0.0.1:${port}`;
+    process.env["OMNICORE_LLM_MODEL"] = "finto";
+    const m = await synthesize("ciao", "chat", []);
+    assert.equal(m.via, "euristica");
+    assert.ok(m.answer.length > 10);
+  });
 });

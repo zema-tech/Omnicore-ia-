@@ -1,9 +1,8 @@
-// Agent loop Omnicore — politica deterministica + tool unificati.
-// Non è più "route → prodotto". È: osserva → scegli tool Omnicore → agisci → rispondi.
-// Quando colleghi un LLM, sostituisci plan() con una chiamata modello che emette ToolCall[].
-import { route } from "../router.ts";
+// Agent loop Omnicore — piano (LLM o keyword) → facoltà → sintesi.
+// Il piano vive in plan.ts; la sintesi in mind/synth.ts.
 import { SYSTEM_PROMPT, banner } from "./identity.ts";
 import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
+import { resolvePlan } from "./plan.ts";
 import { synthesize } from "../mind/synth.ts";
 import type { FuseStep } from "../pipeline.ts";
 
@@ -17,28 +16,11 @@ export interface AgentResult {
   agent: string;
   text: string;
   intent: string;
+  planner: "llm" | "keyword";
   plan: ToolCall[];
   trace: ToolResult[];
   reply: string;
   system: string;
-}
-
-/** Pianificazione minima (senza LLM). Sostituibile con CLM rank o LLM tool-calling. */
-export function plan(userText: string): { intent: string; calls: ToolCall[] } {
-  const { intent } = route({ text: userText });
-  const calls: ToolCall[] = [];
-
-  // Sempre prova memoria leggera (best-effort)
-  calls.push({ name: "memory.search", args: { query: userText, limit: 5 } });
-
-  if (intent === "code") {
-    calls.push({ name: "code.run", args: { prompt: userText } });
-  } else if (intent === "ops") {
-    calls.push({ name: "channel.status", args: {} });
-  }
-  // chat / memory: solo recall + respond
-
-  return { intent, calls };
 }
 
 /** Traccia tool → step minds: la sintesi parla una sola lingua. */
@@ -54,12 +36,12 @@ function toSteps(trace: ToolResult[]): FuseStep[] {
   return [step("brain", mem), step("hands", cod), step("face", ch)];
 }
 
-/** Un turno agente completo: plan → facoltà → sintesi naturale (LLM o euristica). */
+/** Un turno agente completo: piano (LLM o keyword) → facoltà → sintesi. */
 export async function runAgent(
   userText: string,
   opts: { directory?: string } = {},
 ): Promise<AgentResult> {
-  const { intent, calls } = plan(userText);
+  const { intent, calls, planner } = await resolvePlan(userText);
   const trace: ToolResult[] = [];
 
   for (const call of calls) {
@@ -75,6 +57,7 @@ export async function runAgent(
     agent: banner(),
     text: userText,
     intent,
+    planner,
     plan: calls,
     trace,
     reply: mind.answer,

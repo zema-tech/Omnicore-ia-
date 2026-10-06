@@ -13,9 +13,11 @@
     "note": "solo metodi allowlist (status, commands.list, cron.*, agents.*, channels.status). Il recapito live chat passa dal gateway WS/canali, non dall'admin-rpc."
   },
   "llm": {
+    "provider": "api",
     "baseUrl": "",
     "model": "omnicore-fusion",
-    "note": "OpenAI-compatible: imposta baseUrl (es. https://openrouter.ai/api/v1 o http://127.0.0.1:11434/v1) + env OMNICORE_LLM_API_KEY. Vuoto = euristica offline + Ollama nativo se presente."
+    "localModel": "llama3.1",
+    "note": "provider api (default, consigliato: baseUrl OpenAI-compatibile + OMNICORE_LLM_API_KEY da env, mai nel json) oppure local (solo Ollama, mai cloud). Senza backend: piano keyword + sintesi euristica offline."
   },
   "pipeline": {
     "steps": ["brain(hermes.recall, best-effort)", "hands(opencode, solo se intent=code)", "face(openclaw.status+cron, best-effort, mai fatale)", "mind(sintesi LLM o euristica -> answer unica, identita omnicore)"]

@@ -2,16 +2,17 @@
 // plan deterministico + facolta best-effort + sintesi euristica.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { plan, runAgent } from "../src/agent/loop.ts";
+import { planKeyword } from "../src/agent/plan.ts";
+import { runAgent } from "../src/agent/loop.ts";
 
-describe("agent.plan", () => {
+describe("agent.planKeyword", () => {
   it("chat: solo memoria + risposta", () => {
-    const p = plan("ciao");
+    const p = planKeyword("ciao");
     assert.equal(p.intent, "chat");
     assert.deepEqual(p.calls.map((c) => c.name), ["memory.search"]);
   });
   it("code: aggiunge le mani", () => {
-    const p = plan("fix login bug");
+    const p = planKeyword("fix login bug");
     assert.equal(p.intent, "code");
     assert.ok(p.calls.some((c) => c.name === "code.run"));
   });

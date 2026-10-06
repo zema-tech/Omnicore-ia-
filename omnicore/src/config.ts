@@ -14,6 +14,8 @@ export interface OmnicoreConfig {
   openclawRpcPath: string;
   llmBaseUrl: string;
   llmModel: string;
+  llmProvider: "api" | "local";
+  llmLocalModel: string;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -44,5 +46,7 @@ export function loadConfig(): OmnicoreConfig {
     openclawRpcPath: j?.openclaw?.rpcPath ?? "/api/v1/admin/rpc",
     llmBaseUrl: process.env["OMNICORE_LLM_BASE_URL"] ?? j?.llm?.baseUrl ?? "",
     llmModel: process.env["OMNICORE_LLM_MODEL"] ?? j?.llm?.model ?? "omnicore-fusion",
+    llmProvider: (process.env["OMNICORE_LLM_PROVIDER"] ?? j?.llm?.provider ?? "api") === "local" ? "local" : "api",
+    llmLocalModel: process.env["OMNICORE_LLM_LOCAL_MODEL"] ?? j?.llm?.localModel ?? "llama3.1",
   };
 }
