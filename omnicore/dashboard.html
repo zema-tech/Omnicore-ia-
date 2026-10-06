@@ -32,7 +32,7 @@
 </style>
 </head>
 <body>
-<header><h1>Omnicore</h1><span class="sub">una dashboard · una API · sessioni uniche</span></header>
+<header><h1>Omnicore</h1><span class="sub">una dashboard · una API · sessioni uniche</span><input type="password" id="token" placeholder="Bearer token" autocomplete="off" style="margin-left:auto;max-width:180px"></header>
 <main>
   <section>
     <h2>Sessioni</h2>
@@ -61,8 +61,12 @@ flow "demo" when intent == "chat":
 <script>
 const $ = id => document.getElementById(id);
 let sid = null;
+try { $('token').value = localStorage.getItem('omnicore_token') || ''; } catch {}
+$('token').onchange = () => { try { localStorage.setItem('omnicore_token', $('token').value); } catch {} };
 async function api(path, body) {
-  const r = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const headers = {'Content-Type': 'application/json'};
+  if ($('token').value) headers['Authorization'] = 'Bearer ' + $('token').value;
+  const r = await fetch(path, body === undefined ? {headers} : {method:'POST', headers, body:JSON.stringify(body)});
   return r.json();
 }
 function msgHtml(m) {

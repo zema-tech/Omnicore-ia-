@@ -48,14 +48,20 @@ describe("profiles", () => {
     assert.deepEqual(moduleGates(), { world: false, clm: false });
   });
 
-  it("light: world.exec rifiutato dal profilo", async () => {
+  it("light: world.exec senza conferma chiede conferma prima del profilo", async () => {
     const r = await runTool({ name: "world.exec", args: { cmd: "ls" } });
     assert.equal(r.ok, false);
+    assert.equal(r.needsConfirm, true);
+  });
+  it("light: world.exec confermato rifiutato dal profilo", async () => {
+    const r = await runTool({ name: "world.exec", args: { cmd: "ls", confirm: true } });
+    assert.equal(r.ok, false);
+    assert.equal(r.needsConfirm, undefined);
     assert.match(r.error ?? "", /profilo light/);
   });
-  it("medium: world.exec tenta Mirage (non profilo)", async () => {
+  it("medium: world.exec confermato tenta Mirage (non profilo)", async () => {
     process.env["OMNICORE_PROFILE"] = "medium";
-    const r = await runTool({ name: "world.exec", args: { cmd: "ls" } });
+    const r = await runTool({ name: "world.exec", args: { cmd: "ls", confirm: true } });
     assert.equal(r.ok, false);
     assert.match(r.error ?? "", /mirage/i);
   });

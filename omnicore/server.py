@@ -39,6 +39,10 @@ NODE = os.environ.get("OMNICORE_NODE", "node")
 TS_ENTRY = HERE / "src" / "index.ts"
 AGENT_TIMEOUT = float(os.environ.get("OMNICORE_AGENT_TIMEOUT", "120"))
 
+# Tappa 6 — Bearer obbligatorio (fail-closed): senza OMNICORE_API_TOKEN le API
+# rispondono 401 (solo /api/health resta aperto). Il token viaggia solo via env.
+API_TOKEN = os.environ.get("OMNICORE_API_TOKEN", "")
+
 DATA = HERE / "data"
 SESSIONS_FILE = DATA / "sessions.json"
 _lock = threading.Lock()
@@ -115,6 +119,25 @@ def _trace_summary(res: dict) -> str:
 class Handler(BaseHTTPRequestHandler):
     server_version = "Omnicore/0.2"
 
+    def _auth(self) -> bool:
+        """True se la richiesta passa il Bearer. Fail-closed senza token configurato."""
+        import hmac
+        if not API_TOKEN:
+            return False
+        got = self.headers.get("Authorization", "")
+        return hmac.compare_digest(got, f"Bearer {API_TOKEN}")
+
+    def _guard(self) -> bool:
+        """Rifiuta 401 le API senza auth. Ritorna True se si puo procedere."""
+        if self.path == "/api/health" or not self.path.startswith("/api/"):
+            return True
+        if not self._auth():
+            hint = "imposta OMNICORE_API_TOKEN sul server e invia Authorization: Bearer <token>" \
+                if not API_TOKEN else "token mancante o errato"
+            self._json({"error": f"non autorizzato ({hint})"}, 401)
+            return False
+        return True
+
     def _json(self, obj, code: int = 200) -> None:
         body = json.dumps(obj, ensure_ascii=False, default=str).encode()
         self.send_response(code)
@@ -136,6 +159,8 @@ class Handler(BaseHTTPRequestHandler):
             return {}
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._guard():
+            return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
             page = (HERE / "dashboard.html").read_bytes()
@@ -168,6 +193,8 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "not found"}, 404)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._guard():
+            return
         body = self._body()
         if self.path == "/api/route":
             text = str(body.get("text", ""))
@@ -210,7 +237,10 @@ def main() -> None:
     if "--port" in sys.argv:
         port = int(sys.argv[sys.argv.index("--port") + 1])
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print(f"omnicore su http://127.0.0.1:{port}  (dashboard + API unica)", flush=True)
+    if API_TOKEN:
+        print(f"omnicore su http://127.0.0.1:{port}  (dashboard + API unica, Bearer attivo)", flush=True)
+    else:
+        print(f"omnicore su http://127.0.0.1:{port}  (ATTENZIONE: OMNICORE_API_TOKEN non impostato — API rifiutate 401 fail-closed)", flush=True)
     srv.serve_forever()
 
 

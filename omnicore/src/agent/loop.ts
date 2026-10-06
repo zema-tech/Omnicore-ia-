@@ -26,6 +26,18 @@ export interface AgentResult {
   system: string;
 }
 
+/** Frasi con cui l'utente conferma esplicitamente ("confermo: ...", "sì, procedi"). */
+const CONFIRM_RE = /\b(conferm\w*|vai pure|procedi pure|esegui pure|s[iì][, ]?\s*(procedi|esegui|vai)|do it|autorizzo)\b/i;
+
+/** La conferma vale solo se la dice l'UTENTE: quella del modello viene azzerata. */
+export function applyUserConfirm(calls: ToolCall[], userText: string): ToolCall[] {
+  const userConfirmed = CONFIRM_RE.test(userText);
+  return calls.map((c) =>
+    (DESTRUCTIVE_TOOLS as string[]).includes(c.name)
+      ? { ...c, args: { ...(c.args ?? {}), confirm: userConfirmed } }
+      : c,
+  );
+}
 /** Traccia tool → step minds: la sintesi parla una sola lingua. */
 function toSteps(trace: ToolResult[]): FuseStep[] {
   const pick = (n: string) => trace.find((t) => t.name === n);
@@ -47,14 +59,23 @@ export async function runAgent(
   const { intent, calls: planned, planner } = await resolvePlan(userText);
   const gates = moduleGates();
   // Profilo: world.exec esiste solo in medium/alt.
-  const calls = planned.filter((c) => c.name !== "world.exec" || gates.world);
+  const calls = applyUserConfirm(
+    planned.filter((c) => c.name !== "world.exec" || gates.world),
+    userText,
+  );
   const trace: ToolResult[] = [];
   const failedKeys: string[] = [];
 
   for (const call of calls) {
-    // Decide: le azioni distruttive passano da verify (cascata rules→jev→clm).
-    if ((DESTRUCTIVE_TOOLS as string[]).includes(call.name) && call.args?.confirm !== true) {
-      const v = await decideVerify(call, { state: userText, recentAttempts: failedKeys, allowClm: gates.clm });
+    // Decide: le azioni distruttive passano sempre da verify (la conferma
+    // utente abilita, ma loop/offline restano bloccati).
+    if ((DESTRUCTIVE_TOOLS as string[]).includes(call.name)) {
+      const v = await decideVerify(call, {
+        state: userText,
+        recentAttempts: failedKeys,
+        allowClm: gates.clm,
+        confirm: call.args?.confirm === true,
+      });
       if (v.verdict.verdict !== "allow") {
         trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
         continue;

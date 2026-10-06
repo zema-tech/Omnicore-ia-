@@ -32,6 +32,9 @@ export interface ToolResult {
   via: string;
   data?: unknown;
   error?: string;
+  /** Azione distruttiva proposta ma non eseguita: serve conferma esplicita. */
+  needsConfirm?: boolean;
+  preview?: string;
 }
 
 function err(e: unknown): string {
@@ -71,6 +74,10 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "code.run": {
         const prompt = String(args.prompt ?? ctx.text ?? "");
         const directory = (args.directory as string | undefined) ?? ctx.directory;
+        // Tappa 6: scrivere/eseguire codice vuole conferma esplicita (secondo strato dopo decide).
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "code", needsConfirm: true, preview: prompt.slice(0, 300) };
+        }
         const r = await code.run(prompt, { directory });
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.output }
@@ -83,12 +90,20 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "channel.announce": {
         const message = String(args.message ?? ctx.text ?? "");
         const targets = Array.isArray(args.targets) ? (args.targets as string[]) : [];
+        // Tappa 6: inviare sui canali vuole conferma esplicita.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "channel", needsConfirm: true, preview: (targets.length ? `[to:${targets.join(",")}] ` : "") + message.slice(0, 300) };
+        }
         const r = await channel.announce(message, targets);
         return r.ok
           ? { name: call.name, ok: true, via: "channel(openclaw)", data: r.detail }
           : { name: call.name, ok: false, via: "channel(openclaw)", error: String((r.detail as any)?.hint ?? r.detail) };
       }
       case "world.exec": {
+        // Tappa 6: eseguire nel mondo vuole conferma esplicita.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "world", needsConfirm: true, preview: String(args.cmd ?? "").slice(0, 300) };
+        }
         // Profilo: il mondo esiste solo in medium/alt.
         if (!moduleGates().world) {
           return {
