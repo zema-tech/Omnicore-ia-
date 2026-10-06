@@ -12,6 +12,7 @@
     "fuse": "node --experimental-strip-types src/index.ts --fuse",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-strip-types --test \"tests/*.test.ts\"",
     "fuse:py": "python3 omnicore_py/cli.py --fuse",
     "fuse:sh": "bash scripts/omnicore.sh --fuse",
     "fuse:rs": "cargo run -q --manifest-path omnicore_rs/Cargo.toml --",

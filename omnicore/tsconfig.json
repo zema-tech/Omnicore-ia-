@@ -9,5 +9,5 @@
     "declaration": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src", "omniling/ts"]
+  "include": ["src", "omniling/ts", "tests"]
 }
