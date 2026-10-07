@@ -1,0 +1,8 @@
+{
+  "name": "@omnicore/core",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Nucleo agente Omnicore — identity, loop, plan, session",
+  "main": "./README.md"
+}

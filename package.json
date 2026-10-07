@@ -1,0 +1,20 @@
+{
+  "name": "omnicore-ia",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Omnicore — agente IA unificato (code · memory · presence)",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "omnicore"
+  ],
+  "scripts": {
+    "agent": "npm run agent --workspace=omnicore --",
+    "serve": "npm run serve --workspace=omnicore",
+    "test": "npm run test --workspace=omnicore",
+    "typecheck": "npm run typecheck --workspace=omnicore"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

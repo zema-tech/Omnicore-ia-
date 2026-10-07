@@ -1,0 +1,8 @@
+{
+  "name": "@omnicore/presence",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Presenza nativa — canali, cron, annunci",
+  "main": "./README.md"
+}

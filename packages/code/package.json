@@ -1,0 +1,12 @@
+{
+  "name": "@omnicore/code",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Organo coding Omnicore — Claude Code / Codex style, nativo",
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent": "./src/agent.ts",
+    "./workspace": "./src/workspace.ts"
+  }
+}
