@@ -50,20 +50,12 @@ approvazioni con id per ogni scrittura/esecuzione. Profili `light/medium/alt` vi
 ## Struttura
 
 ```
-omnicore/
-  src/agent/      loop, piano (LLM+keyword), 40+ tool
-  src/modules/    canali, cron, agenti, sessioni, permessi, skill, edit, search, todo
-  src/faculties/  memoria, codice, presenza (vendor solo come fallback)
-  src/decide/     regole locali → Jev → CLM
-  src/mind/       LLM (api/locale) + sintesi
-  src/vault/      note Markdown [[link]]
-  skills/         skill versionate con git
-  data/vault/     note cervello (versionate) — resto di data/ ignorato
-  tests/          suite node:test
-  server.py       guscio HTTP del loop + dashboard
-  omniling/       DSL .omni opzionale
-vendors/          submodule di riferimento (mai editati a mano)
+├── omnicore/            agente (loop, moduli, test, server)
+│   └── src/agent/       loop, piano (LLM+keyword), 40+ tool
+├── docs/                architettura, deploy, changelog
+├── vendors/             submodule di riferimento (mai editati a mano)
+├── LICENSE · CONTRIBUTING.md · CHANGELOG.md
 ```
 
-Dettaglio architettura: [`omnicore/ARCHITECTURE.md`](omnicore/ARCHITECTURE.md) ·
-Deploy su qualsiasi host: [`omnicore/DEPLOY.md`](omnicore/DEPLOY.md).
+Dettaglio architettura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
+Deploy su qualsiasi host: [`docs/DEPLOY.md`](docs/DEPLOY.md).
