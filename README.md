@@ -1,80 +1,69 @@
-# Omnicore-ia
+# Omnicore-ia — un unico agente IA
 
-**Omnicore** è un'IA agente — non un orchestratore di prodotti terzi.
+**Omnicore** è un agente IA che gira in un solo loop (`piano → strumenti → risposta`)
+con identità, memoria e mani proprie. Nasce studiando tre progetti open-source —
+[Hermes Agent](vendors/hermes), [OpenCode](vendors/opencode), [OpenClaw](vendors/openclaw) —
+e **fonde le loro funzioni in moduli nativi**, invece di chiamarli come prodotti esterni.
+L'utente parla solo con **Omnicore**: i vendor non compaiono in facciata.
 
-Nasce dalle capacità di motori open-source usati come **organi interni**:
+## Un turno di Omnicore
 
-| Organo Omnicore | Motore | Funzione |
-|-----------------|--------|----------|
-| `memory.*` | [Hermes Agent](vendors/hermes) | memoria, skill, recall |
-| `code.*` | [OpenCode](vendors/opencode) | coding |
-| `channel.*` | [OpenClaw](vendors/openclaw) | presenza, canali, ops |
-| `world.*` | [Mirage](https://github.com/strukto-ai/mirage) (da collegare) | VFS / terminal virtuale |
-| `decide.*` | [CLM](https://github.com/Contrastive-LM/CLM) (da collegare) | rank/verify azioni |
-
-L'utente parla solo con **Omnicore**. I vendor non compaiono in facciata.
-
-Vedi [`omnicore/ARCHITECTURE.md`](omnicore/ARCHITECTURE.md).
+```
+tu scrivi → piano (LLM tool-calling, fallback offline) → decide verifica →
+strumenti nativi → approvazione umana se rischioso → UNA risposta
+```
 
 ## Quickstart
 
 ```bash
 git clone --recurse-submodules https://github.com/zema-tech/Omnicore-ia-.git
 cd Omnicore-ia-/omnicore
-cp .env.example .env   # opzionale
+cp .env.example .env   # opzionale: token, chiavi LLM, profili
 
-# Turno IA (nucleo agente)
-npm run agent -- "fix login bug"
-npm run agent -- "ricordi cosa abbiamo fatto"
+npm run agent -- "cerca TODO nei file"        # mani native, subito
+npm run agent -- "ti ricordi come mi chiamo?" # memoria nativa
+npm run agent -- "confermo: scrivi un file hello con contenuto ciao"
 
-# API + dashboard
-npm run serve
-# → http://127.0.0.1:8100
+npm test        # 90+ test, zero dipendenze (solo node:test)
+npm run typecheck
+
+npm run serve   # API + dashboard su http://127.0.0.1:8100
 ```
 
-Legacy (pipeline esplicita): `npm run fuse -- "…"`.
+## Moduli nativi (`omnicore/src/modules/` + `faculties/`)
 
-## Nucleo agente
+| Modulo | Funzione | Da cosa nasce |
+|---|---|---|
+| `memory` + `vault/` + `sessions` | recall fuso, note `[[link]]`, conversazioni | Hermes sessions/recall |
+| `code` + `native_fs` + `edit` + `search` + `todo` | leggi/scrivi/shell, diff preview, glob/grep, piano di lavoro | OpenCode read/write/edit/tools |
+| `channels` | console + webhook, annunci con conferma | OpenClaw channels |
+| `cron` | job once/delay/every persistiti | OpenClaw cron + Hermes cron |
+| `agents` | registro agenti | OpenClaw agents |
+| `permissions` | approval flow (`approvo <id>` / `nego <id>`) | Hermes permissions + edit-approval |
+| `skills` | capacità caricabili da `omnicore/skills/` | Hermes skills + OpenCode skill |
+| `decide` | cascata regole → Jev API → CLM GPU | CLM System One + jev-harness |
+| `mind` | sintesi a risposta unica (LLM o euristica) | nucleo |
 
-```
-omnicore/src/agent/
-  identity.ts   # chi è Omnicore
-  tools.ts      # tool unificati → organi
-  loop.ts       # plan → tool → risposta
-```
-
-```bash
-npm run agent -- "ciao"
-```
+Sicurezza: Bearer obbligatorio sul server (fail-closed), conferma esplicita e
+approvazioni con id per ogni scrittura/esecuzione. Profili `light/medium/alt` via config.
 
 ## Struttura
 
 ```
 omnicore/
-  src/agent/      ← nucleo IA
-  src/adapters/   ← organi (hermes, opencode, openclaw)
-  server.py       ← API + dashboard + sessioni
-  omniling/       ← DSL opzionale .omni
-vendors/          ← submodule (non editare a mano)
+  src/agent/      loop, piano (LLM+keyword), 40+ tool
+  src/modules/    canali, cron, agenti, sessioni, permessi, skill, edit, search, todo
+  src/faculties/  memoria, codice, presenza (vendor solo come fallback)
+  src/decide/     regole locali → Jev → CLM
+  src/mind/       LLM (api/locale) + sintesi
+  src/vault/      note Markdown [[link]]
+  skills/         skill versionate con git
+  data/vault/     note cervello (versionate) — resto di data/ ignorato
+  tests/          suite node:test
+  server.py       guscio HTTP del loop + dashboard
+  omniling/       DSL .omni opzionale
+vendors/          submodule di riferimento (mai editati a mano)
 ```
 
-## Mente (sintesi unificata)
-
-`omnicore_py/mind/` + `src/mind/` (solo stdlib): brain/hands/face diventano
-*contesto strumenti*, poi la mente sintetizza **una sola risposta** con
-identità Omnicore (`answer` in ogni `fuse()`): memoria unificata
-`data/memory.json` + provider LLM OpenAI-compatibile
-(`OMNICORE_LLM_BASE_URL/MODEL/API_KEY`, oppure Ollama nativo) con fallback
-a sintesi euristica offline — mai un dump JSON.
-
-## Aggiungere CLM e Mirage
-
-```bash
-cd Omnicore-ia-
-git submodule add --depth 1 https://github.com/Contrastive-LM/CLM.git vendors/clm
-git submodule add --depth 1 https://github.com/strukto-ai/mirage.git vendors/mirage
-git commit -m "vendors: clm + mirage"
-git push
-```
-
-Poi implementare `adapters/clm.ts` e `adapters/mirage.ts` collegati a `decide.*` e `world.*`.
+Dettaglio architettura: [`omnicore/ARCHITECTURE.md`](omnicore/ARCHITECTURE.md) ·
+Deploy su qualsiasi host: [`omnicore/DEPLOY.md`](omnicore/DEPLOY.md).
