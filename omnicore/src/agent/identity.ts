@@ -26,6 +26,8 @@ Tool disponibili (nomi stabili Omnicore):
 - channel.status / channel.announce (canali nativi: console, webhook)
 - cron.add / cron.list / cron.remove (pianificazione nativa)
 - agents.register / agents.list / agents.pause (registro agenti)
+- permissions.request / permissions.respond / permissions.list (approvazioni)
+- skills.list / skills.get / skills.search (capacità caricabili)
 - channel.status / channel.announce
 - world.exec (Mirage, se configurato)
 - decide.rank / decide.verify (CLM, se configurato)

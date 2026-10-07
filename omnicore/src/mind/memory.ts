@@ -1,13 +1,13 @@
 // Memoria unificata Omnicore (zero dipendenze, file JSON).
 // Mirror di omnicore_py/mind/memory.py.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { recentAcross } from "../modules/sessions.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // src/mind
 const DATA = join(HERE, "..", "..", "data");
 const MEM_FILE = join(DATA, "memory.json");
-const SESS_FILE = join(DATA, "sessions.json");
 const MAX_FACTS = 300;
 
 const FACT_RE = /(ricordati che|ricorda che|ricorda:|mi chiamo|il mio nome e|preferisco|lavoro con|uso spesso|sono un|sono una|abito a|vivo a)/i;
@@ -56,12 +56,11 @@ export function recallMem(query: string, limit = 5) {
     .map((x) => x.f);
 }
 
+/** Storia recente: UNICO lettore = modules/sessions (stesso file del server). */
 export function recentHistory(limit = 8): any[] {
   try {
-    if (!existsSync(SESS_FILE)) return [];
-    const db = JSON.parse(readFileSync(SESS_FILE, "utf8"));
-    const msgs: any[] = [];
-    for (const s of Object.values<any>(db.sessions ?? {})) msgs.push(...(s.messages ?? []).slice(-3));
-    return msgs.slice(-limit);
-  } catch { return []; }
+    return (recentAcross(limit) as any[]).map((m) => ({ text: m.text, ts: m.ts, ...m }));
+  } catch {
+    return [];
+  }
 }

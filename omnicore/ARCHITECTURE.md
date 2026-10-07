@@ -7,7 +7,9 @@ L'utente parla solo con Omnicore. I vendor non compaiono come prodotti in faccia
 
 | Organo Omnicore | Motore (vendor) | Funzione |
 |-----------------|-----------------|----------|
-| **memory.*** | Hermes Agent | memoria, skill, recall |
+| **memory.*** | NATIVO (`modules/sessions.ts` + `mind/memory.ts` + `vault/`) — Hermes solo canali esterni | sessioni, recall, note |
+| **skills** | NATIVO (`modules/skills.ts`, dir `skills/` versionata) | capacità caricabili |
+| **permissions** | NATIVO (`modules/permissions.ts`, approvals in `data/approvals.json`) | approval flow |
 | **code.*** | NATIVO (`faculties/native_fs.ts`) — OpenCode solo boost opzionale | file, shell, coding |
 | **channel.*** | OpenClaw | presenza, canali, ops |
 | **world.*** | Mirage (da collegare) | VFS / terminal virtuale |

@@ -42,6 +42,8 @@ code.run {prompt}, code.read {path}, code.write {path, content}, code.shell {cmd
 channel.status {}, channel.announce {message, targets},
 cron.add {name, schedule, payload}, cron.list {}, cron.remove {name},
 agents.register {name, skills}, agents.list {}, agents.pause {name},
+permissions.request {action, target}, permissions.respond {id, allow},
+skills.list {}, skills.get {name}, skills.search {query},
 world.exec {cmd}, decide.rank {candidati}, decide.verify {azione}, respond vietato.
 Scegli solo tool utili alla richiesta; per saluti basta memory.search.`;
 

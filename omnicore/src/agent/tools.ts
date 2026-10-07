@@ -6,6 +6,8 @@ import { code } from "../faculties/code.ts";
 import { channels } from "../modules/channels.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
+import { permissions } from "../modules/permissions.ts";
+import { skills } from "../modules/skills.ts";
 import { readFile, writeFile, runShell } from "../faculties/native_fs.ts";
 import { saveNote, searchNotes } from "../vault/notes.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
@@ -28,6 +30,12 @@ export type ToolName =
   | "agents.register"
   | "agents.list"
   | "agents.pause"
+  | "permissions.request"
+  | "permissions.respond"
+  | "permissions.list"
+  | "skills.list"
+  | "skills.get"
+  | "skills.search"
   | "world.exec"
   | "decide.rank"
   | "decide.verify"
@@ -168,6 +176,35 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: "agents", data: { paused: args.name } }
           : { name: call.name, ok: false, via: "agents", error: `agente non trovato: ${args.name}` };
       }
+      case "permissions.request": {
+        try {
+          const req = permissions.request(String(args.action ?? ""), String(args.target ?? ""), String(args.reason ?? ""));
+          return { name: call.name, ok: true, via: "permissions", data: req };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "permissions", error: String(e).slice(0, 200) };
+        }
+      }
+      case "permissions.respond": {
+        const done = permissions.respond(String(args.id ?? ""), args.allow === true);
+        return done
+          ? { name: call.name, ok: true, via: "permissions", data: { id: args.id, allow: args.allow === true } }
+          : { name: call.name, ok: false, via: "permissions", error: `richiesta non trovata o già decisa: ${args.id}` };
+      }
+      case "permissions.list": {
+        return { name: call.name, ok: true, via: "permissions", data: permissions.open() };
+      }
+      case "skills.list": {
+        return { name: call.name, ok: true, via: "skills", data: skills.list().map((s) => ({ name: s.name, description: s.description })) };
+      }
+      case "skills.get": {
+        const s = skills.get(String(args.name ?? ""));
+        return s
+          ? { name: call.name, ok: true, via: "skills", data: s }
+          : { name: call.name, ok: false, via: "skills", error: `skill non trovata: ${args.name}` };
+      }
+      case "skills.search": {
+        return { name: call.name, ok: true, via: "skills", data: skills.search(String(args.query ?? "")).map((s) => ({ name: s.name, description: s.description })) };
+      }
       case "world.exec": {
         // Tappa 6: eseguire nel mondo vuole conferma esplicita.
         if (args.confirm !== true) {
@@ -247,6 +284,12 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "agents.register", description: "Registra un agente {name, skills}" },
   { name: "agents.list", description: "Elenca gli agenti registrati" },
   { name: "agents.pause", description: "Mette in pausa un agente {name}" },
+  { name: "permissions.request", description: "Chiede approvazione {action, target, reason}" },
+  { name: "permissions.respond", description: "Approva/nega {id, allow}" },
+  { name: "permissions.list", description: "Richieste di approvazione aperte" },
+  { name: "skills.list", description: "Elenca le skill caricabili" },
+  { name: "skills.get", description: "Leggi una skill {name}" },
+  { name: "skills.search", description: "Cerca skill {query}" },
   { name: "world.exec", description: "Comando nel mondo virtuale (Mirage)" },
   { name: "decide.rank", description: "Rank azioni candidate (CLM System One)" },
   { name: "decide.verify", description: "Verifica un'azione (CLM)" },
