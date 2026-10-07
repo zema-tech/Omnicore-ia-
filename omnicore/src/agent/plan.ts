@@ -25,7 +25,13 @@ export function planKeyword(userText: string): { intent: string; calls: ToolCall
   calls.push({ name: "memory.search", args: { query: userText, limit: 5 } });
 
   if (intent === "code") {
-    calls.push({ name: "code.run", args: { prompt: userText } });
+    // Ricerca nel codice: grep diretto (sola lettura, nessuna conferma).
+    const g = userText.match(/(?:cerca|trova|cercami|grep)\s+(.+?)\s+nei\s+file/i);
+    if (g?.[1]) {
+      calls.push({ name: "code.grep", args: { pattern: g[1].trim().replace(/^["“]|["”]$/g, "") } });
+    } else {
+      calls.push({ name: "code.run", args: { prompt: userText } });
+    }
   } else if (intent === "ops") {
     calls.push({ name: "channel.status", args: {} });
   }
@@ -39,6 +45,9 @@ Formato: [{"name": "<tool>", "args": {...}}], max 3 tool, in ordine di esecuzion
 Tool ammessi: memory.search {query, limit}, memory.read {session_key, limit},
 memory.note_save {title, body}, memory.note_search {query, limit},
 code.run {prompt}, code.read {path}, code.write {path, content}, code.shell {cmd},
+code.edit {path, oldText, newText} (preview; apply:true + conferma per scrivere),
+code.glob {pattern}, code.grep {pattern},
+todo.add {text}, todo.list {}, todo.done {id}, todo.clear {},
 channel.status {}, channel.announce {message, targets},
 cron.add {name, schedule, payload}, cron.list {}, cron.remove {name},
 agents.register {name, skills}, agents.list {}, agents.pause {name},

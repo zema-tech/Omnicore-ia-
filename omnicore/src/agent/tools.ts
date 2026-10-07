@@ -3,12 +3,15 @@
 // non i vendor: gli adapter restano nascosti dentro src/faculties/.
 import { memory } from "../faculties/memory.ts";
 import { code } from "../faculties/code.ts";
+import { readFile, writeFile, runShell } from "../faculties/native_fs.ts";
+import { edit } from "../modules/edit.ts";
+import { search } from "../modules/search.ts";
+import { todos } from "../modules/todo.ts";
 import { channels } from "../modules/channels.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
 import { skills } from "../modules/skills.ts";
-import { readFile, writeFile, runShell } from "../faculties/native_fs.ts";
 import { saveNote, searchNotes } from "../vault/notes.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
 import { moduleGates } from "../config.ts";
@@ -22,6 +25,13 @@ export type ToolName =
   | "code.read"
   | "code.write"
   | "code.shell"
+  | "code.edit"
+  | "code.glob"
+  | "code.grep"
+  | "todo.add"
+  | "todo.list"
+  | "todo.done"
+  | "todo.clear"
   | "channel.status"
   | "channel.announce"
   | "cron.add"
@@ -126,6 +136,56 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.output }
           : { name: call.name, ok: false, via: r.via, error: r.output };
+      }
+      case "code.edit": {
+        // Anteprima diff di default; apply:true scrive (e vuole conferma).
+        const path = String(args.path ?? "");
+        const oldText = String(args.oldText ?? "");
+        const newText = String(args.newText ?? "");
+        if (args.apply === true) {
+          if (args.confirm !== true) {
+            return { name: call.name, ok: false, via: "code", needsConfirm: true, preview: `edit ${path}` };
+          }
+          const r = edit.apply(path, oldText, newText, { all: args.all === true });
+          return r.ok
+            ? { name: call.name, ok: true, via: r.via, data: r.output }
+            : { name: call.name, ok: false, via: r.via, error: r.output };
+        }
+        const p = edit.preview(path, oldText, newText);
+        return p.ok
+          ? { name: call.name, ok: true, via: p.via, data: p.diff }
+          : { name: call.name, ok: false, via: p.via, error: p.diff };
+      }
+      case "code.glob": {
+        const r = search.glob(String(args.pattern ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.output }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "glob fallito" };
+      }
+      case "code.grep": {
+        const r = search.grep(String(args.pattern ?? ""), String(args.dir ?? "."));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.hits }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "grep fallito" };
+      }
+      case "todo.add": {
+        try {
+          return { name: call.name, ok: true, via: "todo", data: todos.add(String(args.text ?? "")) };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "todo", error: String(e).slice(0, 200) };
+        }
+      }
+      case "todo.list": {
+        return { name: call.name, ok: true, via: "todo", data: todos.list() };
+      }
+      case "todo.done": {
+        const done = todos.set(String(args.id ?? ""), "done");
+        return done
+          ? { name: call.name, ok: true, via: "todo", data: { done: args.id } }
+          : { name: call.name, ok: false, via: "todo", error: `todo non trovato: ${args.id}` };
+      }
+      case "todo.clear": {
+        return { name: call.name, ok: true, via: "todo", data: { cleared: todos.clear() } };
       }
       case "channel.status": {
         return { name: call.name, ok: true, via: "channel(native)", data: channels.status() };
@@ -276,6 +336,13 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "code.read", description: "Leggi un file del workspace" },
   { name: "code.write", description: "Scrivi un file nel workspace (conferma)" },
   { name: "code.shell", description: "Comando shell nel workspace (conferma)" },
+  { name: "code.edit", description: "Diff preview {path,oldText,newText}; apply:true scrive (conferma)" },
+  { name: "code.glob", description: "File per pattern {pattern}" },
+  { name: "code.grep", description: "Cerca regex nei file {pattern, dir}" },
+  { name: "todo.add", description: "Aggiungi passo {text}" },
+  { name: "todo.list", description: "Elenca i passi" },
+  { name: "todo.done", description: "Chiudi un passo {id}" },
+  { name: "todo.clear", description: "Pulisci i passi chiusi" },
   { name: "channel.status", description: "Stato canali nativi di presenza" },
   { name: "channel.announce", description: "Annuncio / invio su canali (conferma)" },
   { name: "cron.add", description: "Pianifica un job {name, schedule, payload}" },

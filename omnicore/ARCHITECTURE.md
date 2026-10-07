@@ -10,7 +10,7 @@ L'utente parla solo con Omnicore. I vendor non compaiono come prodotti in faccia
 | **memory.*** | NATIVO (`modules/sessions.ts` + `mind/memory.ts` + `vault/`) — Hermes solo canali esterni | sessioni, recall, note |
 | **skills** | NATIVO (`modules/skills.ts`, dir `skills/` versionata) | capacità caricabili |
 | **permissions** | NATIVO (`modules/permissions.ts`, approvals in `data/approvals.json`) | approval flow |
-| **code.*** | NATIVO (`faculties/native_fs.ts`) — OpenCode solo boost opzionale | file, shell, coding |
+| **code.*** | NATIVO (`faculties/native_fs.ts` + `modules/edit|search|todo.ts`) — OpenCode solo boost opzionale | file, shell, edit+diff, grep/glob, coding |
 | **channel.*** | OpenClaw | presenza, canali, ops |
 | **world.*** | Mirage (da collegare) | VFS / terminal virtuale |
 | **decide.*** | CLM (da collegare) | System One: rank/verify azioni |
