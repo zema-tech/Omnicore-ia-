@@ -16,6 +16,8 @@ export interface Approval {
   status: ApprovalStatus;
   created: number;
   decided?: number;
+  /** Azione registrata: se approvata, il loop la esegue davvero. */
+  call?: { name: string; args: Record<string, unknown> };
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,8 +42,13 @@ function save(approvals: Approval[]): void {
   writeFileSync(f, JSON.stringify({ approvals }, null, 2));
 }
 
-/** Apre una richiesta di approvazione. Ritorna la richiesta. */
-export function approvalRequest(action: string, target: string, reason = ""): Approval {
+/** Apre una richiesta di approvazione (con azione registrata opzionale). Ritorna la richiesta. */
+export function approvalRequest(
+  action: string,
+  target: string,
+  reason = "",
+  call?: { name: string; args: Record<string, unknown> },
+): Approval {
   if (!action.trim() || !target.trim()) throw new Error("approval vuole action e target");
   const all = load();
   const req: Approval = {
@@ -52,9 +59,15 @@ export function approvalRequest(action: string, target: string, reason = ""): Ap
     status: "open",
     created: Date.now(),
   };
+  if (call && typeof call.name === "string") req.call = { name: call.name, args: call.args ?? {} };
   all.push(req);
   save(all);
   return req;
+}
+
+/** Una richiesta per id (o null). */
+export function approvalGet(id: string): Approval | null {
+  return load().find((x) => x.id === id) ?? null;
 }
 
 /** Richieste ancora aperte. */
@@ -73,4 +86,4 @@ export function approvalRespond(id: string, allow: boolean): boolean {
   return true;
 }
 
-export const permissions = { request: approvalRequest, open: approvalsOpen, respond: approvalRespond };
+export const permissions = { request: approvalRequest, get: approvalGet, open: approvalsOpen, respond: approvalRespond };

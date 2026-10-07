@@ -5,6 +5,7 @@ import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
 import { resolvePlan } from "./plan.ts";
 import { decideVerify } from "../decide/index.ts";
 import { DESTRUCTIVE_TOOLS, attemptKey } from "../decide/rules.ts";
+import { approvalRequest, approvalGet, approvalRespond } from "../modules/permissions.ts";
 import { moduleGates } from "../config.ts";
 import { synthesize } from "../mind/synth.ts";
 import type { FuseStep } from "../pipeline.ts";
@@ -38,6 +39,65 @@ export function applyUserConfirm(calls: ToolCall[], userText: string): ToolCall[
       : c,
   );
 }
+/** Anteprima leggibile di un'azione per approval e reply. */
+function previewOf(call: ToolCall): string {
+  const a = call.args ?? {};
+  const pick = (...keys: string[]) => {
+    for (const k of keys) if (a[k] !== undefined && a[k] !== "") return String(a[k]);
+    return "";
+  };
+  const p = pick("prompt", "message", "cmd", "path", "query", "text") || JSON.stringify(a);
+  return `${call.name}: ${p}`.slice(0, 300);
+}
+
+/** "approvo <id>" / "nego <id>": l'umano decide su un'azione registrata. */
+const APPROVE_RE = /\b(approv\w*|nego|nega|rifiut\w*)\s+(appr-[\w-]+)/i;
+
+async function handleApprovalAnswer(
+  userText: string,
+  opts: { directory?: string },
+): Promise<AgentResult | null> {
+  const m = userText.match(APPROVE_RE);
+  if (!m) return null;
+  const allow = /^(approv)/i.test(m[1]);
+  const id = m[2];
+  const trace: ToolResult[] = [];
+  const found = approvalGet(id);
+  if (!found) {
+    const reply = `Non trovo approvazioni con id ${id}: forse è di un'altra sessione o è già stata archiviata. Descrivimi pure l'azione da capo.`;
+    trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+  }
+  if (found.status !== "open") {
+    const reply = `L'approvazione ${id} è già stata decisa (${found.status}): nessuna doppia esecuzione.`;
+    trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+  }
+  approvalRespond(id, allow);
+  if (!allow || !found.call) {
+    const reply = allow
+      ? `Approvazione ${id} registrata, ma senza azione eseguibile collegata: niente da fare.`
+      : `Azione ${id} negata e archiviata: non è stato eseguito nulla.`;
+    trace.push({ name: "permissions.respond", ok: true, via: "permissions", data: { id, allow } });
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+  }
+  // Via umana confermata: esegue l'azione registrata (conferma forzata, decide già passato).
+  const exec = await runTool(
+    { name: found.call.name as ToolCall["name"], args: { ...found.call.args, confirm: true } },
+    { text: userText, directory: opts.directory },
+  );
+  trace.push(exec);
+  const reply = exec.ok
+    ? `Approvato ed eseguito ${id} (${found.call.name}): ${shortResult(exec)}.`
+    : `Approvato ${id}, ma l'esecuzione è fallita: ${String(exec.error ?? "?").slice(0, 300)}`;
+  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+}
+
+function shortResult(t: ToolResult): string {
+  const d = t.data;
+  const s = typeof d === "string" ? d : JSON.stringify(d ?? "");
+  return s.slice(0, 300);
+}
 /** Traccia tool → step minds: la sintesi parla una sola lingua. */
 function toSteps(trace: ToolResult[]): FuseStep[] {
   const pick = (n: string) => trace.find((t) => t.name === n);
@@ -56,6 +116,10 @@ export async function runAgent(
   userText: string,
   opts: { directory?: string } = {},
 ): Promise<AgentResult> {
+  // Dipendenza umana: "approvo/nego <id>" decide su azioni registrate, prima di tutto.
+  const approvalTurn = await handleApprovalAnswer(userText, opts);
+  if (approvalTurn) return approvalTurn;
+
   const { intent, calls: planned, planner } = await resolvePlan(userText);
   const gates = moduleGates();
   // Profilo: world.exec esiste solo in medium/alt.
@@ -77,7 +141,19 @@ export async function runAgent(
         confirm: call.args?.confirm === true,
       });
       if (v.verdict.verdict !== "allow") {
-        trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
+        // Review = serve l'umano: registra l'azione in approvazione con id.
+        // Deny = errore reale, niente approval (non potrebbe mai riuscire).
+        if (v.verdict.verdict === "review") {
+          const req = approvalRequest(
+            call.name,
+            previewOf(call),
+            v.verdict.reason,
+            { name: call.name, args: (call.args ?? {}) as Record<string, unknown> },
+          );
+          trace.push({ name: call.name, ok: false, via: `decide(${v.level})+permissions`, error: `in attesa di approvazione ${req.id}: ${v.verdict.reason}` });
+        } else {
+          trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
+        }
         continue;
       }
     }

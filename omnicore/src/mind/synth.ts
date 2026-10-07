@@ -36,6 +36,10 @@ export function heuristicAnswer(text: string, intent: string, steps: FuseStep[])
   const parts: string[] = [];
   if (intent === "code") {
     if (hands?.ok && hands.result !== "skipped") parts.push(`Ho lavorato sul codice: ${short(hands.result)}`);
+    else if (hands?.ok === false && /in attesa di approvazione (appr-[\w-]+)/.test(String(hands.error ?? ""))) {
+      const id = String(hands.error).match(/in attesa di approvazione (appr-[\w-]+)/)?.[1];
+      parts.push(`Azione in attesa di tua approvazione (${id}). Rispondi «approvo ${id}» per eseguirla, «nego ${id}» per archiviarla.`);
+    }
     else if (hands?.ok === false && /conferma/i.test(String(hands.error ?? ""))) parts.push("Per toccare file o eseguire comandi mi serve il tuo via esplicito: riscrivi la richiesta iniziando con «confermo» e procedo subito.");
     else if (hands?.ok === false) parts.push("Non sono riuscito a lavorare sul codice in autonomia (motore coding non disponibile ora). Incolla l'errore o descrivimi file e obiettivo e procediamo insieme, passo passo.");
     else parts.push("Ho capito che è un task di codice: descrivimi file/obiettivo e lo faccio.");
@@ -46,7 +50,9 @@ export function heuristicAnswer(text: string, intent: string, steps: FuseStep[])
     else if (!brainEmpty) parts.push(`Ho cercato nella mia memoria: ${short(brain!.result)}`);
     else parts.push("Ho cercato nella memoria ma non ho trovato nulla di rilevante — me lo racconti?");
   } else if (intent === "ops") {
-    if (face?.ok && face.result !== "skipped") parts.push(`Presenza: ${formatFace(face.result)}`);
+    const apprId = [brain, hands, face].map((s) => String(s?.ok === false ? s?.error ?? "" : "").match(/in attesa di approvazione (appr-[\w-]+)/)?.[1]).find(Boolean);
+    if (apprId) parts.push(`Azione in attesa di tua approvazione (${apprId}). Rispondi «approvo ${apprId}» per eseguirla, «nego ${apprId}» per archiviarla.`);
+    else if (face?.ok && face.result !== "skipped") parts.push(`Presenza: ${formatFace(face.result)}`);
     else if (face?.ok === false) parts.push("Il gateway al momento non risponde, ma resto operativa: posso preparare comandi e cron da applicare appena torna.");
     else parts.push("Sul fronte operativo non ho eseguito controlli per questa richiesta — dimmi cosa vuoi fare: stato canali, annuncio o pianificazione.");
   } else {
