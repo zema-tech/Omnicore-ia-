@@ -1,0 +1,8 @@
+node_modules/
+omnicore/node_modules/
+omnicore/data/
+.git/
+vendors/*/.git
+__pycache__/
+*.log
+.env

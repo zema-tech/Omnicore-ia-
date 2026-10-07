@@ -234,13 +234,18 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     port = int(os.environ.get("OMNICORE_PORT", "8100"))
+    host = os.environ.get("OMNICORE_HOST", "127.0.0.1")
     if "--port" in sys.argv:
         port = int(sys.argv[sys.argv.index("--port") + 1])
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    if host not in ("127.0.0.1", "localhost", "::1") and not API_TOKEN:
+        print("RIFIUTO: bind non-localhost senza OMNICORE_API_TOKEN. "
+              "Imposta il token o usa OMNICORE_HOST=127.0.0.1.", flush=True)
+        sys.exit(2)
+    srv = ThreadingHTTPServer((host, port), Handler)
     if API_TOKEN:
-        print(f"omnicore su http://127.0.0.1:{port}  (dashboard + API unica, Bearer attivo)", flush=True)
+        print(f"omnicore su http://{host}:{port}  (dashboard + API unica, Bearer attivo)", flush=True)
     else:
-        print(f"omnicore su http://127.0.0.1:{port}  (ATTENZIONE: OMNICORE_API_TOKEN non impostato — API rifiutate 401 fail-closed)", flush=True)
+        print(f"omnicore su http://{host}:{port}  (ATTENZIONE: OMNICORE_API_TOKEN non impostato — API rifiutate 401 fail-closed)", flush=True)
     srv.serve_forever()
 
 

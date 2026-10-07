@@ -53,8 +53,10 @@ approvazioni con id per ogni scrittura/esecuzione. Profili `light/medium/alt` vi
 ├── omnicore/            agente (loop, moduli, test, server)
 │   └── src/agent/       loop, piano (LLM+keyword), 40+ tool
 ├── docs/                architettura, deploy, changelog
+├── docker/              Dockerfile + compose per qualsiasi host
+├── examples/            transcript reali di turni agente
 ├── vendors/             submodule di riferimento (mai editati a mano)
-├── LICENSE · CONTRIBUTING.md · CHANGELOG.md
+├── AGENTS.md · SECURITY.md · LICENSE · CONTRIBUTING.md · CHANGELOG.md
 ```
 
 Dettaglio architettura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·

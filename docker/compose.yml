@@ -1,0 +1,32 @@
+# Uso: OMNICORE_API_TOKEN=... docker compose -f docker/compose.yml up --build
+services:
+  omnicore:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8100:8100"
+    environment:
+      OMNICORE_PORT: "8100"
+      OMNICORE_HOST: 0.0.0.0
+      OMNICORE_API_TOKEN: ${OMNICORE_API_TOKEN:?imposta OMNICORE_API_TOKEN}
+      OMNICORE_PROFILE: ${OMNICORE_PROFILE:-light}
+      OMNICORE_WORKSPACE: /workspace
+    volumes:
+      - omnicore-data:/app/omnicore/data
+      - ${OMNICORE_WORKSPACE:-.}/:/workspace:ro
+    restart: unless-stopped
+
+  # Profilo local-LLM opzionale:
+  #   docker compose -f docker/compose.yml --profile local up
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  omnicore-data:
+  ollama-data:
