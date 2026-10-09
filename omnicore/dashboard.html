@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Omnicore — dashboard unica</title>
+<title>Omnicore — dashboard</title>
 <style>
-  :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3; --dim:#8b949e; --acc:#58a6ff; --ok:#3fb950; --ko:#f85149; }
+  :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3; --dim:#8b949e; --acc:#58a6ff; --ok:#3fb950; --ko:#f85149; --code:#a5d6ff; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.5 system-ui,sans-serif; }
-  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   header h1 { font-size:16px; margin:0; }
   header .sub { color:var(--dim); font-size:12px; }
-  main { display:grid; grid-template-columns:220px 1fr 1fr; gap:1px; background:var(--line); min-height:calc(100vh - 53px); }
+  main { display:grid; grid-template-columns:200px 1fr 1fr; gap:1px; background:var(--line); min-height:calc(100vh - 53px); }
   section { background:var(--bg); padding:12px; overflow:auto; }
   h2 { font-size:12px; text-transform:uppercase; color:var(--dim); margin:0 0 8px; }
   #sessions button { display:block; width:100%; text-align:left; background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:6px 8px; margin:0 0 6px; cursor:pointer; }
@@ -22,17 +22,20 @@
   .badge { display:inline-block; font-size:11px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); color:var(--dim); margin-left:6px; }
   .badge.ok { color:var(--ok); border-color:var(--ok); }
   .badge.ko { color:var(--ko); border-color:var(--ko); }
-  .steps { font-size:12px; color:var(--dim); margin-top:4px; }
+  .steps { font-size:12px; color:var(--dim); margin-top:4px; white-space:pre-wrap; font-family:ui-monospace,monospace; }
+  .timeline { background:#0a0e14; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.45 ui-monospace,monospace; color:var(--code); white-space:pre-wrap; min-height:120px; }
   form.row { display:flex; gap:8px; margin-top:8px; }
   input[type=text], textarea { flex:1; background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:8px; font:inherit; }
-  textarea { width:100%; min-height:160px; font-family:monospace; font-size:12px; }
   button.send { background:var(--acc); color:#04121f; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font-weight:600; }
-  pre { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px; overflow:auto; font-size:12px; }
   @media (max-width:900px){ main{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
-<header><h1>Omnicore</h1><span class="sub">una dashboard · una API · sessioni uniche</span><input type="password" id="token" placeholder="Bearer token" autocomplete="off" style="margin-left:auto;max-width:180px"></header>
+<header>
+  <h1>Omnicore</h1>
+  <span class="sub">chat · code.task (Claude Code) · sessioni</span>
+  <input type="password" id="token" placeholder="Bearer token" autocomplete="off" style="margin-left:auto;max-width:180px">
+</header>
 <main>
   <section>
     <h2>Sessioni</h2>
@@ -40,22 +43,22 @@
     <button class="send" id="new" style="width:100%">+ nuova</button>
   </section>
   <section>
-    <h2>Chat (agent loop unico)</h2>
+    <h2>Chat</h2>
     <div id="chat"></div>
-    <form class="row" id="chatform"><input type="text" id="text" placeholder="scrivi… (es. fix login bug)" autocomplete="off"><button class="send">►</button></form>
+    <form class="row" id="chatform">
+      <input type="text" id="text" placeholder="es. crea hello.txt con ciao · o: confermo: …" autocomplete="off">
+      <button class="send">►</button>
+    </form>
   </section>
   <section>
-    <h2>OmniLang (.omni)</h2>
-    <textarea id="omnisrc" spellcheck="false">system hermes: memory via "bridge"
-
-tool recall on hermes:
-  call "conversations_list"
-  args search = $query, limit = 5
-
-flow "demo" when intent == "chat":
-  ctx = recall(search: $text)</textarea>
-    <form class="row"><input type="text" id="omnitext" value="ciao"><button class="send" id="omnirun">esegui</button></form>
-    <pre id="omniout">—</pre>
+    <h2>Code agent · timeline</h2>
+    <p style="color:var(--dim);font-size:12px;margin:0 0 8px">Come Claude Code: plan → step → file toccati. Usa <code>confermo:</code> per eseguire.</p>
+    <div class="timeline" id="codetimeline">Nessun code.task ancora.
+Prova: «confermo: crea note.md con hello»</div>
+    <form class="row" id="codeform">
+      <input type="text" id="codegoal" placeholder="goal coding…">
+      <button class="send">code.task</button>
+    </form>
   </section>
 </main>
 <script>
@@ -69,14 +72,30 @@ async function api(path, body) {
   const r = await fetch(path, body === undefined ? {headers} : {method:'POST', headers, body:JSON.stringify(body)});
   return r.json();
 }
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function extractTimeline(res) {
+  // cerca steps/timeline nella risposta agent
+  const t = res?.trace || res?.tools || res?.result?.trace || [];
+  const arr = Array.isArray(t) ? t : [];
+  for (const step of arr) {
+    if (step?.name === 'code.task' && step?.data?.timeline) return step.data.timeline;
+    if (step?.data?.steps) {
+      return (step.data.summary || '') + '\n' + step.data.steps.map((s,i) =>
+        `${i+1}. ${s.ok===false?'✗':'✓'} ${s.kind}${s.path?' '+s.path:''}${s.cmd?' `'+s.cmd+'`':''}`
+      ).join('\n');
+    }
+  }
+  if (res?.reply && /code\(agent|code\.task|File:/.test(res.reply)) return res.reply;
+  return null;
+}
 function msgHtml(m) {
   const cls = m.ok === true ? 'ok' : (m.ok === false ? 'ko' : '');
-  const ans = m.answer ? `<div style="margin-top:6px;color:var(--txt);white-space:pre-wrap;border-left:2px solid var(--acc);padding-left:8px">${escapeHtml(m.answer)}</div>` : '';
-  return `<div class="msg"><span class="t"></span><span class="badge">${m.intent||''} · ${m.handler||''}</span> <span class="badge ${cls}">${m.ok===undefined?'':(m.ok?'ok':'ko')}</span><div></div>${ans}<div class="steps">${m.summary||''}</div></div>`;
+  const ans = m.answer ? `<div style="margin-top:6px;white-space:pre-wrap;border-left:2px solid var(--acc);padding-left:8px">${escapeHtml(m.answer)}</div>` : '';
+  return `<div class="msg"><span class="t"></span><span class="badge">${m.intent||''}</span> <span class="badge ${cls}">${m.ok===undefined?'':(m.ok?'ok':'ko')}</span><div></div>${ans}<div class="steps">${escapeHtml(m.summary||'')}</div></div>`;
 }
 async function loadSessions() {
   const list = await api('/api/sessions');
-  $('sessions').innerHTML = list.map(s =>
+  $('sessions').innerHTML = (list||[]).map(s =>
     `<button data-id="${s.id}" class="${s.id===sid?'active':''}"><b>${s.id}</b> <small>${s.count} msg · ${(s.last||'').slice(0,40)}</small></button>`).join('') || '<small style="color:var(--dim)">nessuna sessione</small>';
   document.querySelectorAll('#sessions button[data-id]').forEach(b => b.onclick = () => { sid = b.dataset.id; loadChat(); loadSessions(); });
 }
@@ -85,22 +104,30 @@ async function loadChat() {
   const s = await api('/api/session?id=' + encodeURIComponent(sid));
   $('chat').innerHTML = (s.messages||[]).map(m => msgHtml(m).replace('<span class="t"></span>', `<span class="t"></span>${escapeHtml(m.text)}`)).join('');
 }
-function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function sendAgent(text) {
+  const res = await api('/api/chat', {text, session_id: sid});
+  sid = res.session_id || sid;
+  const tl = extractTimeline(res);
+  if (tl) $('codetimeline').textContent = tl;
+  else if (res.reply) $('codetimeline').textContent = res.reply;
+  await loadSessions(); await loadChat();
+  return res;
+}
 $('chatform').onsubmit = async e => {
   e.preventDefault();
   const text = $('text').value.trim(); if (!text) return;
   $('text').value = '';
-  const res = await api('/api/chat', {text, session_id: sid});
-  sid = res.session_id;
-  await loadSessions(); await loadChat();
+  await sendAgent(text);
 };
-$('new').onclick = () => { sid = null; $('chat').innerHTML = '<small style="color:var(--dim)">scrivi il primo messaggio: la sessione nasce da sola</small>'; loadSessions(); };
-$('omnirun').onclick = async e => {
+$('codeform').onsubmit = async e => {
   e.preventDefault();
-  $('omniout').textContent = '…';
-  const res = await api('/api/omni', {source: $('omnisrc').value, text: $('omnitext').value || 'ciao'});
-  $('omniout').textContent = JSON.stringify(res, null, 2);
+  const goal = $('codegoal').value.trim(); if (!goal) return;
+  $('codegoal').value = '';
+  $('codetimeline').textContent = '… code.task in corso';
+  const text = /^conferm/i.test(goal) ? goal : ('confermo: ' + goal);
+  await sendAgent(text);
 };
+$('new').onclick = () => { sid = null; $('chat').innerHTML = '<small style="color:var(--dim)">primo messaggio crea la sessione</small>'; loadSessions(); };
 loadSessions();
 </script>
 </body>

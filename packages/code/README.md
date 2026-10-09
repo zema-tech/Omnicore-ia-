@@ -1,26 +1,43 @@
-# @omnicore/code
+# @omnicore/code — Claude Code di Omnicore
 
-**Claude Code di Omnicore** — organo di prima classe, non wrapper di `opencode serve`.
+Organo coding di **prima classe** (stile Claude Code / Codex), non wrapper di OpenCode.
 
-## API
+Ispirazione prodotto (non codice copiato):
+- [Rakazo](https://github.com/elie222/rakazo) — step visibili, computer/workspace, BYOK
+- [invisible_dots](https://github.com/feder-cr/invisible_dots) — skill su disco, permessi ask/allow, timeline task
 
-```ts
-import { runCodeAgent } from "@omnicore/code";
+## Runtime collegato
 
-const result = await runCodeAgent({
-  goal: "crea hello.txt con ciao e verifica con cat",
-  workspace: process.env.OMNICORE_WORKSPACE,
-  budgetSteps: 8,
-});
-// { ok, summary, steps[], filesTouched[] }
+Nel loop agente Omnicore:
+
+```text
+code.task { goal }  →  modules/code_agent.ts  →  packages/code runCodeAgent
 ```
 
-## File
+Ritorna:
 
-| File | Ruolo |
-|------|--------|
-| `src/workspace.ts` | root jail, read/write/list/shell |
-| `src/agent.ts` | loop multi-step plan → act → observe |
-| `src/index.ts` | export pubblici |
+```json
+{
+  "summary": "…",
+  "timeline": "1. ✓ write hello.txt — …",
+  "steps": [{ "kind": "write", "path": "hello.txt", "ok": true }],
+  "filesTouched": ["hello.txt"]
+}
+```
 
-Path felice = **solo Node built-in**. OpenCode resta boost opzionale nel runtime `omnicore/`.
+Serve **conferma** utente (`confermo: …`) come le altre azioni che scrivono.
+
+## API diretta
+
+```ts
+import { runCodeAgent } from "./src/index.ts";
+
+const r = await runCodeAgent({
+  goal: "crea note.md con hello e verifica",
+  workspace: "/tmp/omni-ws",
+  budgetSteps: 6,
+});
+```
+
+Path felice = solo Node built-in (jail su `OMNICORE_WORKSPACE`).
+OpenCode resta boost opzionale in `omnicore/src/faculties/code.ts`.

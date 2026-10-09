@@ -13,6 +13,7 @@ import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
 import { skills } from "../modules/skills.ts";
+import { codeAgent } from "../modules/code_agent.ts";
 import { saveNote, searchNotes } from "../vault/notes.ts";
 import { decideRank, decideVerify } from "../decide/index.ts";
 import { moduleGates } from "../config.ts";
@@ -23,6 +24,7 @@ export type ToolName =
   | "memory.note_save"
   | "memory.note_search"
   | "code.run"
+  | "code.task"
   | "code.read"
   | "code.write"
   | "code.shell"
@@ -110,7 +112,6 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "code.run": {
         const prompt = String(args.prompt ?? ctx.text ?? "");
         const directory = (args.directory as string | undefined) ?? ctx.directory;
-        // Tappa 6: scrivere/eseguire codice vuole conferma esplicita (secondo strato dopo decide).
         if (args.confirm !== true) {
           return { name: call.name, ok: false, via: "code", needsConfirm: true, preview: prompt.slice(0, 300) };
         }
@@ -118,6 +119,43 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.output }
           : { name: call.name, ok: false, via: r.via, error: r.output };
+      }
+      case "code.task": {
+        // Claude Code di Omnicore: multi-step nativo (plan→list/read/write/shell).
+        const goal = String(args.goal ?? args.prompt ?? ctx.text ?? "");
+        if (args.confirm !== true) {
+          return {
+            name: call.name,
+            ok: false,
+            via: "code(agent-native)",
+            needsConfirm: true,
+            preview: `code.task: ${goal.slice(0, 280)}`,
+          };
+        }
+        const r = await codeAgent.runTask(goal, {
+          workspace: (args.workspace as string | undefined) ?? ctx.directory,
+          budgetSteps: Number(args.budgetSteps ?? 8),
+        });
+        const timeline = codeAgent.formatTimeline(r);
+        return r.ok
+          ? {
+              name: call.name,
+              ok: true,
+              via: r.via,
+              data: {
+                summary: r.summary,
+                timeline,
+                steps: r.steps,
+                filesTouched: r.filesTouched,
+              },
+            }
+          : {
+              name: call.name,
+              ok: false,
+              via: r.via,
+              error: timeline || r.summary,
+              data: { steps: r.steps, filesTouched: r.filesTouched },
+            };
       }
       case "code.read": {
         const r = readFile(String(args.path ?? ""));
@@ -144,7 +182,6 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           : { name: call.name, ok: false, via: r.via, error: r.output };
       }
       case "code.edit": {
-        // Anteprima diff di default; apply:true scrive (e vuole conferma).
         const path = String(args.path ?? "");
         const oldText = String(args.oldText ?? "");
         const newText = String(args.newText ?? "");
@@ -209,7 +246,6 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "channel.announce": {
         const message = String(args.message ?? ctx.text ?? "");
         const targets = Array.isArray(args.targets) ? (args.targets as string[]) : [];
-        // Tappa 6: inviare sui canali vuole conferma esplicita.
         if (args.confirm !== true) {
           return { name: call.name, ok: false, via: "channel", needsConfirm: true, preview: (targets.length ? `[to:${targets.join(",")}] ` : "") + message.slice(0, 300) };
         }
@@ -282,11 +318,9 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return { name: call.name, ok: true, via: "skills", data: skills.search(String(args.query ?? "")).map((s) => ({ name: s.name, description: s.description })) };
       }
       case "world.exec": {
-        // Tappa 6: eseguire nel mondo vuole conferma esplicita.
         if (args.confirm !== true) {
           return { name: call.name, ok: false, via: "world", needsConfirm: true, preview: String(args.cmd ?? "").slice(0, 300) };
         }
-        // Profilo: il mondo esiste solo in medium/alt.
         if (!moduleGates().world) {
           return {
             name: call.name,
@@ -295,7 +329,6 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
             error: "profilo light: mondo disabilitato (serve medium o alt)",
           };
         }
-        // Stub: Mirage non ancora collegato. Quando vendors/mirage è attivo, qui va Workspace.execute.
         return {
           name: call.name,
           ok: false,
@@ -348,6 +381,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "memory.read", description: "Leggi una sessione/memoria per chiave" },
   { name: "memory.note_save", description: "Salva una nota nel vault (titolo + testo)" },
   { name: "memory.note_search", description: "Cerca nelle note del vault" },
+  { name: "code.task", description: "Claude Code di Omnicore: agent multi-step {goal} (conferma)" },
   { name: "code.run", description: "Task coding alto livello (nativo se possibile, else OpenCode)" },
   { name: "code.read", description: "Leggi un file del workspace" },
   { name: "code.write", description: "Scrivi un file nel workspace (conferma)" },
