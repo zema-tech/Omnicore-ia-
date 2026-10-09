@@ -34,9 +34,13 @@ function guessPath(goal: string): string | null {
   const q = goal.match(QUOTED);
   if (q?.[1] && /[/\\.]/.test(q[1])) return q[1].trim();
   const m = goal.match(
-    /(?:file|path|in)\s+[`'"“]?([\w./\\-]+\.[a-z0-9]{1,8})[`'"“]?/i,
+    /(?:file|path|percorso|in|su|di|crea|scrivi|genera|leggi|apri|mostra|vedi|creare)\s+[`'"“]?([\w./\\-]+\.[a-z][a-z0-9]{0,7})[`'"“]?/i,
   );
-  return m?.[1] ?? null;
+  if (m?.[1]) return m[1];
+  // fallback: nome file libero nel goal (estensione che inizia per lettera,
+  // così "python 3.11" non diventa un path)
+  const bare = goal.match(/\b([\w][\w./\\-]*\.[a-z][a-z0-9]{0,7})\b/i);
+  return bare?.[1] ?? null;
 }
 
 function guessWriteContent(goal: string): string {
@@ -67,7 +71,6 @@ export function planCodeSteps(goal: string): CodeStep[] {
   const wantsList = /\b(elenca|lista|list|ls|albero|tree)\b/i.test(g);
   const wantsRead = /\b(leggi|read|mostra|apri|cat|vedi)\b/i.test(g);
   const wantsWrite = /\b(scrivi|crea|genera|write|create)\b/i.test(g);
-  const wantsVerify = /\b(verifica|test|controlla|cat)\b/i.test(g);
 
   // sempre orientati: lista root se non c’è path chiaro e non è solo shell
   if (wantsList || (!path && !shell && !wantsWrite)) {
@@ -79,9 +82,8 @@ export function planCodeSteps(goal: string): CodeStep[] {
   if (wantsWrite) {
     const p = path ?? "omnicore-out.txt";
     steps.push({ kind: "write", path: p, content: guessWriteContent(g) });
-    if (wantsVerify || true) {
-      steps.push({ kind: "read", path: p });
-    }
+    // verifica: rileggi sempre ciò che hai scritto
+    steps.push({ kind: "read", path: p });
   }
   if (shell) {
     steps.push({ kind: "shell", cmd: shell });
@@ -102,7 +104,11 @@ export function planCodeSteps(goal: string): CodeStep[] {
 export async function runCodeAgent(input: CodeAgentInput): Promise<CodeAgentResult> {
   const root = workspaceRoot(input.workspace);
   const budget = Math.max(1, Math.min(input.budgetSteps ?? 8, 20));
-  const plan = planCodeSteps(input.goal).slice(0, budget);
+  // il budget taglia gli step utili; `done` è sempre garantito in coda
+  const body = planCodeSteps(input.goal)
+    .filter((s) => s.kind !== "done")
+    .slice(0, budget);
+  const plan = [...body, { kind: "done" } as CodeStep];
   const steps: CodeStep[] = [];
   const filesTouched: string[] = [];
   let failed = false;

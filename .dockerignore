@@ -1,0 +1,13 @@
+# Build Omnicore: niente segreti, niente stato locale, niente build artifacts.
+# vendors/ RESTA incluso: serve a runtime (hermes bridge).
+.env
+.env.local
+.git/
+node_modules/
+omnicore/node_modules/
+omnicore/dist/
+omnicore/data/*
+!omnicore/data/vault/
+__pycache__/
+omnicore_rs/target/
+*.log

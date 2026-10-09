@@ -61,6 +61,24 @@ describe("native_fs", () => {
     assert.equal(r.ok, false);
     assert.match(r.output, /bloccato/);
   });
+  it("blocklist nega rm ricorsivo con path e flag lunghe", async () => {
+    for (const c of [
+      "rm -rf /tmp/x",
+      "rm -RF /tmp/x",
+      "rm -r /tmp/x",
+      "rm --recursive /tmp/x",
+      "rm --recursive --force /tmp/x",
+      "sudo rm -rf /",
+      "echo a; rm -rf /tmp/x",
+    ]) {
+      assert.ok(isBlocked(c) !== null, `doveva bloccare: ${c}`);
+      const r = await runShell(c, { timeoutMs: 2000 });
+      assert.equal(r.ok, false, `doveva fallire: ${c}`);
+    }
+    // non-comandi restano permessi
+    assert.equal(isBlocked("rm file.txt"), null);
+    assert.equal(isBlocked("echo rm -rf"), null);
+  });
   it("timeout kill soft", async () => {
     const r = await runShell("sleep 10 && echo tardi", { timeoutMs: 400 });
     assert.equal(r.ok, false);

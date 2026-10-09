@@ -3,6 +3,5 @@
   "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Memoria nativa Omnicore (fatti, sessioni, skill, vault)",
-  "main": "./README.md"
+  "description": "Memoria nativa Omnicore (fatti, sessioni, skill, vault) (confine documentale, runtime in omnicore/src/)"
 }

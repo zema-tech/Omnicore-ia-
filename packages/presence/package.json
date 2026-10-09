@@ -3,6 +3,5 @@
   "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Presenza nativa — canali, cron, annunci",
-  "main": "./README.md"
+  "description": "Presenza nativa — canali, cron, annunci (confine documentale, runtime in omnicore/src/)"
 }

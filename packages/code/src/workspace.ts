@@ -66,17 +66,26 @@ export function listDir(userPath = ".", root?: string): FsResult {
 }
 
 const BLOCKED = [
-  /\brm\s+(-[a-z]*r[a-z]*\s+)*\/?(\s|$)/i,
   /\b(format|mkfs)\b/i,
   /\bdd\s+.*\bof=\/dev\//i,
   /\b(shutdown|reboot|halt|poweroff)\b/i,
   /:\(\)\s*\{.*;\s*\}\s*;/,
 ];
 
+/** Vero se il segmento esegue `rm` ricorsivo come comando (non come argomento). */
+function isRecursiveRm(cmd: string): boolean {
+  for (const seg of cmd.split(/;|\n|\|\||\||&&|&/)) {
+    const m = seg.trim().match(/^(?:sudo\s+)?(?:\/[\w./-]*\/)?rm\s+(.*)$/i);
+    if (m && /(^|\s)-[a-zA-Z]*[rR]|--recursive/i.test(` ${m[1]}`)) return true;
+  }
+  return false;
+}
+
 export function isBlocked(cmd: string): string | null {
   for (const re of BLOCKED) {
     if (re.test(cmd)) return `comando bloccato: ${re.source.slice(0, 40)}`;
   }
+  if (isRecursiveRm(cmd)) return "comando bloccato: rm ricorsivo";
   return null;
 }
 
