@@ -104,11 +104,21 @@ function toSteps(trace: ToolResult[]): FuseStep[] {
   const mem = pick("memory.search") ?? pick("memory.read");
   const cod = pick("code.run");
   const ch = pick("channel.announce") ?? pick("channel.status");
+  // Extra (web.fetch, code.grep...): il meglio va nel contesto memoria,
+  // così la sintesi li vede senza cambiare forma degli step.
+  const consumed = new Set(["memory.search", "memory.read", "code.run", "channel.announce", "channel.status", "respond"]);
+  const extras = trace
+    .filter((t) => !consumed.has(t.name) && t.ok && t.data !== undefined)
+    .map((t) => `[${t.name} via ${t.via}] ${shortResult(t)}`);
   const step = (s: "brain" | "hands" | "face", t: ToolResult | undefined): FuseStep =>
     t
       ? { step: s, via: t.via, ok: t.ok, ...(t.ok ? { result: t.data } : { error: t.error ?? "?" }) }
       : { step: s, via: "omnicore [skip]", ok: true, result: "skipped" };
-  return [step("brain", mem), step("hands", cod), step("face", ch)];
+  const steps = [step("brain", mem), step("hands", cod), step("face", ch)];
+  if (extras.length && steps[0].ok) {
+    steps[0] = { ...steps[0], result: `${JSON.stringify(steps[0].result ?? "").slice(0, 1500)}\n${extras.join("\n").slice(0, 2500)}` };
+  }
+  return steps;
 }
 
 /** Un turno agente completo: piano (LLM o keyword) → facoltà → sintesi. */

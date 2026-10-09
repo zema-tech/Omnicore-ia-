@@ -24,6 +24,10 @@ export function planKeyword(userText: string): { intent: string; calls: ToolCall
   // Sempre prova memoria leggera (best-effort)
   calls.push({ name: "memory.search", args: { query: userText, limit: 5 } });
 
+  // URL nel messaggio: leggi la pagina (sola lettura, nessuna conferma)
+  const url = userText.match(/https?:\/\/[^\s"'“”<>]+/)?.[0];
+  if (url) calls.push({ name: "web.fetch", args: { url } });
+
   if (intent === "code") {
     // Ricerca nel codice: grep diretto (sola lettura, nessuna conferma).
     const g = userText.match(/(?:cerca|trova|cercami|grep)\s+(.+?)\s+nei\s+file/i);
@@ -48,6 +52,7 @@ code.run {prompt}, code.read {path}, code.write {path, content}, code.shell {cmd
 code.edit {path, oldText, newText} (preview; apply:true + conferma per scrivere),
 code.glob {pattern}, code.grep {pattern},
 todo.add {text}, todo.list {}, todo.done {id}, todo.clear {},
+web.fetch {url},
 channel.status {}, channel.announce {message, targets},
 cron.add {name, schedule, payload}, cron.list {}, cron.remove {name},
 agents.register {name, skills}, agents.list {}, agents.pause {name},

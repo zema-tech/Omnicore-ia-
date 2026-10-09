@@ -1,5 +1,9 @@
 # Changelog
 
+## Tappa 11 — Browser nativo (web.fetch)
+Legge pagine pubbliche (html→testo+link, json) con anti-SSRF, redirect
+rivalidati e timeout. Tool nel loop, nessuna conferma (sola lettura).
+
 ## Tappa 10 — Coding agent nativo
 Edit con diff preview, glob/grep, todo. OpenCode solo fallback.
 

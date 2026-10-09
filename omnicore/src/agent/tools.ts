@@ -6,6 +6,7 @@ import { code } from "../faculties/code.ts";
 import { readFile, writeFile, runShell } from "../faculties/native_fs.ts";
 import { edit } from "../modules/edit.ts";
 import { search } from "../modules/search.ts";
+import { web } from "../modules/web.ts";
 import { todos } from "../modules/todo.ts";
 import { channels } from "../modules/channels.ts";
 import { cron } from "../modules/cron.ts";
@@ -28,6 +29,7 @@ export type ToolName =
   | "code.edit"
   | "code.glob"
   | "code.grep"
+  | "web.fetch"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -171,6 +173,16 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.hits }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "grep fallito" };
+      }
+      case "web.fetch": {
+        const url = String(args.url ?? ctx.text?.match(/https?:\/\/[^\s"'“”<>]+/)?.[0] ?? "");
+        if (!url) {
+          return { name: call.name, ok: false, via: "web(native-fetch)", error: "web.fetch vuole {url: https://…}" };
+        }
+        const r = await web.fetch(url);
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.page }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "fetch fallito" };
       }
       case "todo.add": {
         try {
@@ -343,6 +355,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "code.edit", description: "Diff preview {path,oldText,newText}; apply:true scrive (conferma)" },
   { name: "code.glob", description: "File per pattern {pattern}" },
   { name: "code.grep", description: "Cerca regex nei file {pattern, dir}" },
+  { name: "web.fetch", description: "Leggi una pagina pubblica {url} (solo testo, anti-SSRF)" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
