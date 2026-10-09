@@ -23,7 +23,8 @@ describe("router.classify", () => {
 
 describe("router.route", () => {
   it("abbina handler senza brand vendor in facciata", () => {
-    assert.deepEqual(route({ text: "fix bug" }), { intent: "code", handler: "opencode" });
-    assert.deepEqual(route({ text: "ciao" }), { intent: "chat", handler: "hermes" });
+    assert.deepEqual(route({ text: "fix bug" }), { intent: "code", handler: "code" });
+    assert.deepEqual(route({ text: "ciao" }), { intent: "chat", handler: "memory" });
+    assert.deepEqual(route({ text: "controlla il gateway" }), { intent: "ops", handler: "presence" });
   });
 });

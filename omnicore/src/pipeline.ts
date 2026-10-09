@@ -56,9 +56,9 @@ export async function fuse(req: OmnicoreRequest): Promise<FuseResult> {
   // 3) PRESENZA fusa (gateway best-effort, MAI fatale)
   try {
     const face = await channel.status();
-    steps.push({ step: "face", via: "channel(openclaw status)", ok: true, result: face });
+    steps.push({ step: "face", via: "channel(native status)", ok: true, result: face });
   } catch (e) {
-    steps.push({ step: "face", via: "channel(openclaw)", ok: false, error: err(e) });
+    steps.push({ step: "face", via: "channel(native)", ok: false, error: err(e) });
   }
 
   // 4) MIND — sintesi a vera IA (LLM se configurato, altrimenti euristica offline)

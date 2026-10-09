@@ -198,7 +198,13 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body()
         if self.path == "/api/route":
             text = str(body.get("text", ""))
-            self._json({**route(text), "text": text})
+            # Facciata Omnicore: il router Python è un mirror legacy con nomi
+            # vendor — rimappati su facoltà prima di rispondere.
+            r = route(text)
+            facciata = {"opencode": "code", "hermes": "memory", "openclaw": "presence"}.get(
+                r.get("handler", ""), "memory"
+            )
+            self._json({"intent": r.get("intent"), "handler": facciata, "text": text})
             return
         if self.path == "/api/fuse":
             # Alias legacy: STESSO unico loop agente di /api/chat, nessuna seconda pipeline.

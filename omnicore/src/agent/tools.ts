@@ -86,8 +86,12 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "memory.read": {
         const key = String(args.session_key ?? args.key ?? "");
         const limit = Number(args.limit ?? 50);
-        const data = await memory.read(key, limit);
-        return { name: call.name, ok: true, via: "memory(hermes-read)", data };
+        try {
+          const data = await memory.read(key, limit);
+          return { name: call.name, ok: true, via: "memory(read)", data };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "memory(read)", error: String(e).slice(0, 300) };
+        }
       }
       case "memory.note_save": {
         try {

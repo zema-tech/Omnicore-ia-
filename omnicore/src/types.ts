@@ -11,7 +11,8 @@ export interface OmnicoreRequest {
 
 export interface OmnicoreResponse {
   intent: Intent;
-  handler: "hermes" | "opencode" | "openclaw";
+  /** Facoltà Omnicore che gestisce l'intent — mai brand vendor in facciata. */
+  handler: "memory" | "code" | "presence";
   result: unknown;
 }
 

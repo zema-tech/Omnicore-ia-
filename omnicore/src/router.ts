@@ -42,14 +42,14 @@ export function route(req: OmnicoreRequest): Pick<OmnicoreResponse, "intent" | "
   const intent = classify(req.text);
   switch (intent) {
     case "code":
-      return { intent, handler: "opencode" };
+      return { intent, handler: "code" };
     case "memory":
-      return { intent, handler: "hermes" };
+      return { intent, handler: "memory" };
     case "ops":
-      return { intent, handler: "openclaw" };
+      return { intent, handler: "presence" };
     case "chat":
     default:
-      // chat goes to the brain by default; gateway delivers the reply
-      return { intent, handler: "hermes" };
+      // chat goes to memory by default; presence delivers the reply
+      return { intent, handler: "memory" };
   }
 }
