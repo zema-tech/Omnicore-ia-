@@ -1,9 +1,11 @@
 // Omnicore entry.
 //   --agent  "…"   → turno IA (tool unificati, identità Omnicore)
 //   --fuse   "…"   → pipeline legacy brain→hands→face
+//   --doctor       → verifica quale cervello risponde (api/local/euristica)
 //   (default) "…"  → route singola (debug)
 import { route } from "./router.ts";
 import { fuse } from "./pipeline.ts";
+import { llmDoctor } from "./mind/llm.ts";
 import { memory } from "./faculties/memory.ts";
 import { code } from "./faculties/code.ts";
 import { channel } from "./faculties/channel.ts";
@@ -13,6 +15,7 @@ async function main() {
   const raw = process.argv.slice(2);
   const doFuse = raw.includes("--fuse");
   const doAgent = raw.includes("--agent");
+  const doDoctor = raw.includes("--doctor");
   const dirIdx = raw.indexOf("--dir");
   const directory = dirIdx >= 0 ? raw[dirIdx + 1] : undefined;
   const text =
@@ -25,6 +28,11 @@ async function main() {
           (dirIdx < 0 || a !== raw[dirIdx + 1]),
       )
       .join(" ") || "ciao";
+
+  if (doDoctor) {
+    console.log(JSON.stringify(await llmDoctor(), null, 2));
+    return;
+  }
 
   if (doAgent) {
     console.log(JSON.stringify(await runAgent(text, { directory }), null, 2));

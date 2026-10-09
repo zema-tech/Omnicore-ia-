@@ -31,6 +31,22 @@ npm test
 npm run serve   # http://127.0.0.1:8100
 ```
 
+## Collega la tua API key (il tuo agente)
+
+Senza key, Omnicore ragiona offline (euristica). Con la tua key diventa
+un vero agente (piano + risposta dal modello):
+
+```bash
+export OMNICORE_LLM_BASE_URL="https://openrouter.ai/api/v1"  # o Ollama/LM Studio
+export OMNICORE_LLM_API_KEY="sk-..."                          # solo env, mai nel repo
+export OMNICORE_LLM_MODEL="anthropic/claude-sonnet-4"         # o llama3.1, qwen...
+npm run doctor   # verifica: active deve dire "api" (o "local" con Ollama)
+npm run agent -- "ciao"
+```
+
+Chiavi solo da env (`omnicore/.env.example` le elenca tutte). Senza backend
+raggiungibile degrada da solo all'euristica offline.
+
 ## Organo code (nativo)
 
 ```ts

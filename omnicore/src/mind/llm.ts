@@ -19,22 +19,15 @@ export interface LlmStatus {
 import { loadConfig } from "../config.ts";
 
 export function llmConfig() {
-  let jsonProvider: string | undefined;
-  let jsonLocalModel: string | undefined;
-  try {
-    const j = loadConfig();
-    jsonProvider = j.llmProvider;
-    jsonLocalModel = j.llmLocalModel;
-  } catch {
-    /* config assente: solo env */
-  }
-  const provider: LlmProvider = (process.env["OMNICORE_LLM_PROVIDER"] ?? jsonProvider ?? "api") === "local" ? "local" : "api";
+  // env vince su omnicore.config.json, che vince sui default (dentro loadConfig).
+  // La key resta SOLO env (mai nel json). loadConfig non lancia mai.
+  const j = loadConfig();
   return {
-    provider,
-    baseUrl: (process.env["OMNICORE_LLM_BASE_URL"] ?? "").replace(/\/$/, ""),
+    provider: j.llmProvider,
+    baseUrl: j.llmBaseUrl.replace(/\/$/, ""),
     apiKey: process.env["OMNICORE_LLM_API_KEY"] ?? "",
-    model: process.env["OMNICORE_LLM_MODEL"] ?? "omnicore-fusion",
-    localModel: process.env["OMNICORE_LLM_LOCAL_MODEL"] ?? jsonLocalModel ?? "llama3.1",
+    model: j.llmModel,
+    localModel: j.llmLocalModel,
     timeoutMs: Number(process.env["OMNICORE_LLM_TIMEOUT"] ?? "30000"),
     ollama: (process.env["OLLAMA_HOST"] ?? "http://127.0.0.1:11434").replace(/\/$/, ""),
   };
@@ -105,4 +98,40 @@ export async function llmChatVia(system: string, user: string, maxTokens = 800):
 export async function llmChat(system: string, user: string, maxTokens = 800): Promise<string | null> {
   const r = await llmChatVia(system, user, maxTokens);
   return r?.text ?? null;
+}
+
+export interface DoctorBackend {
+  ok: boolean;
+  ms: number;
+  model?: string;
+  detail: string;
+}
+
+export interface DoctorResult {
+  provider: LlmProvider;
+  api: DoctorBackend;
+  local: DoctorBackend;
+  /** Backend che il loop userebbe ora (stessa catena di llmChatVia). */
+  active: "api" | "local" | "euristica";
+}
+
+/** Verifica quale cervello risponde: prova api e local con un ping. Mai throw. */
+export async function llmDoctor(): Promise<DoctorResult> {
+  const c = llmConfig();
+  const ping = async (kind: "api" | "local"): Promise<DoctorBackend> => {
+    const t0 = Date.now();
+    try {
+      const txt = kind === "api" ? await chatApi("Sei un test di connessione.", "Rispondi solo: ok", 10) : await chatLocal("Sei un test di connessione.", "Rispondi solo: ok", 10);
+      if (!txt) throw new Error("nessuna risposta");
+      return { ok: true, ms: Date.now() - t0, model: kind === "api" ? c.model : c.localModel, detail: txt.slice(0, 80) };
+    } catch (e) {
+      const hint = kind === "api"
+        ? (!c.baseUrl ? "OMNICORE_LLM_BASE_URL non impostato" : String(e).slice(0, 120))
+        : `ollama non raggiungibile (${c.ollama})`;
+      return { ok: false, ms: Date.now() - t0, detail: hint };
+    }
+  };
+  const [api, local] = [await ping("api"), await ping("local")];
+  const active = c.provider === "local" ? (local.ok ? "local" as const : "euristica" as const) : api.ok ? "api" as const : local.ok ? "local" as const : "euristica" as const;
+  return { provider: c.provider, api, local, active };
 }

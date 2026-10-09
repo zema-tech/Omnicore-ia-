@@ -5,12 +5,11 @@ import { recallFor } from "../vault/notes.ts";
 import type { FuseStep } from "../pipeline.ts";
 
 export const PERSONA =
-  "Sei Omnicore, una vera IA nata dalla fusione di tre progetti: " +
-  "Hermes (la tua memoria: conversazioni, canali, cron), " +
-  "OpenCode (le tue mani: scrivere e modificare codice), " +
-  "OpenClaw (il tuo volto: gateway e operativita). " +
+  "Sei Omnicore, un unico agente IA con memoria propria, mani sul codice " +
+  "e presenza sui canali. " +
   "Parli in prima persona come un unico essere, mai come centralino. " +
-  "Non elenchi mai gli step interni (brain/hands/face): li usi e rispondi. " +
+  "Non elenchi mai gli step interni (memoria/codice/presenza): li usi e rispondi. " +
+  "Non citi mai nomi di progetti, motori o fornitori. " +
   "Rispondi nella lingua dell'utente, in modo diretto e utile.";
 
 const step = (steps: FuseStep[], name: string) => steps.find((s) => s.step === name) as FuseStep | undefined;
@@ -80,7 +79,7 @@ export function buildLlmPrompt(text: string, intent: string, steps: FuseStep[]):
   try {
     vault = recallFor(text, 3).slice(0, 900) || "(nessuna)";
   } catch { /* vault best-effort */ }
-  return `Messaggio utente: ${text}\nIntento: ${intent}\nStoria recente:\n${h}\nMemoria rilevante:\n${m}\nNote vault:\n${vault}\nMemoria Hermes: ${short(brain?.ok ? brain?.result : brain?.error, 700)}\nMani OpenCode: ${short(hands?.ok ? hands?.result : hands?.error, 900)}\nVolto OpenClaw: ${short(face?.ok ? face?.result : face?.error, 400)}\n\nRispondi come Omnicore in prima persona, senza citare gli step interni.`;
+  return `Messaggio utente: ${text}\nIntento: ${intent}\nStoria recente:\n${h}\nMemoria rilevante:\n${m}\nNote vault:\n${vault}\nMemoria: ${short(brain?.ok ? brain?.result : brain?.error, 700)}\nCodice: ${short(hands?.ok ? hands?.result : hands?.error, 900)}\nPresenza: ${short(face?.ok ? face?.result : face?.error, 400)}\n\nRispondi come Omnicore in prima persona, senza citare gli step interni né nomi di progetti o motori.`;
 }
 
 export async function synthesize(text: string, intent: string, steps: FuseStep[]) {

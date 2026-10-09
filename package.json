@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "agent": "npm run agent --workspace=omnicore --",
+    "doctor": "npm run doctor --workspace=omnicore",
     "serve": "npm run serve --workspace=omnicore",
     "test": "npm run test --workspace=omnicore",
     "typecheck": "npm run typecheck --workspace=omnicore"
