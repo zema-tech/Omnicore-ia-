@@ -76,6 +76,9 @@ export type ToolName =
   | "skills.get"
   | "skills.search"
   | "skills.create"
+  | "skills.audit"
+  | "skills.prune"
+  | "skills.compose"
   | "world.exec"
   | "decide.rank"
   | "decide.verify"
@@ -540,6 +543,36 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "skills.search": {
         return { name: call.name, ok: true, via: "skills", data: skills.search(String(args.query ?? "")).map((s) => ({ name: s.name, description: s.description })) };
       }
+      case "skills.audit": {
+        const r = skills.audit();
+        return { name: call.name, ok: true, via: "skills(curator)", data: r };
+      }
+      case "skills.prune": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "skills", needsConfirm: true, preview: `prune skill ${args.name ?? ""}` };
+        }
+        try {
+          return { name: call.name, ok: true, via: "skills", data: skills.prune(String(args.name ?? "")) };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "skills", error: String(e).slice(0, 200) };
+        }
+      }
+      case "skills.compose": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "skills", needsConfirm: true, preview: `compose skill ${args.name ?? ""} da ${(Array.isArray(args.from) ? args.from : []).join(",")}` };
+        }
+        try {
+          const created = skills.compose(
+            String(args.name ?? ""),
+            String(args.description ?? ""),
+            Array.isArray(args.from) ? args.from.map(String) : [],
+            typeof args.extra === "string" ? args.extra : "",
+          );
+          return { name: call.name, ok: true, via: "skills", data: created };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "skills", error: String(e).slice(0, 200) };
+        }
+      }
       case "skills.create": {
         // Scrive nel repo: serve conferma esplicita come code.write.
         if (args.confirm !== true) {
@@ -662,6 +695,9 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "skills.get", description: "Leggi una skill {name}" },
   { name: "skills.search", description: "Cerca skill {query}" },
   { name: "skills.create", description: "Crea skill riusabile {name, description, instructions} (conferma)" },
+  { name: "skills.audit", description: "Curator: valuta catalogo (sovrapposizioni, esili, stantie)" },
+  { name: "skills.prune", description: "Elimina una skill {name} (conferma)" },
+  { name: "skills.compose", description: "Workflow da skill esistenti {name, description, from[]} (conferma)" },
   { name: "world.exec", description: "Comando nel mondo virtuale (Mirage)" },
   { name: "decide.rank", description: "Rank azioni candidate (CLM System One)" },
   { name: "decide.verify", description: "Verifica un'azione (CLM)" },

@@ -60,6 +60,7 @@ agents.fanout {items} (paralleli + coordinatore, conferma),
 permissions.request {action, target}, permissions.respond {id, allow},
 skills.list {}, skills.get {name}, skills.search {query},
 skills.create {name, description, instructions} (conferma),
+skills.audit {}, skills.prune {name} (conferma), skills.compose {name, description, from} (conferma),
 world.exec {cmd}, decide.rank {candidati}, decide.verify {azione}, respond vietato.
 Per codice multi-file o "crea/scrivi/fix": usa code.task. Per saluti basta memory.search.`;
 

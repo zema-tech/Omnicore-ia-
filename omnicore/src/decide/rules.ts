@@ -30,6 +30,8 @@ const DESTRUCTIVE = new Set([
   "discord.send",
   "slack.send",
   "skills.create",
+  "skills.prune",
+  "skills.compose",
   "agents.run",
   "agents.fanout",
   "mcp.list",
@@ -85,6 +87,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "skills.list" ||
       name === "skills.search" ||
       name === "skills.get" ||
+      name === "skills.audit" ||
       name === "code.glob" ||
       name === "code.grep" ||
       name === "code.symbols" ||

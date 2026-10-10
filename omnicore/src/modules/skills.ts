@@ -8,7 +8,7 @@
 //   description: cosa fa
 //   ---
 // Zero dipendenze.
-import { readdirSync, readFileSync, existsSync, statSync, mkdirSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, statSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -91,7 +91,7 @@ export function searchSkills(query: string, limit = 5): Skill[] {
     .map((x) => x.s);
 }
 
-export const skills = { dir: skillsDir, list: listSkills, get: getSkill, search: searchSkills, create: createSkill };
+export const skills = { dir: skillsDir, list: listSkills, get: getSkill, search: searchSkills, create: createSkill, audit: auditSkills, prune: pruneSkill, compose: composeSkill };
 
 /** Crea una skill da riuso: cartella <name>/SKILL.md con frontmatter. Throw se invalida. */
 export function createSkill(name: string, description: string, instructions: string): { name: string; path: string } {
@@ -111,4 +111,77 @@ export function createSkill(name: string, description: string, instructions: str
   const safe = (s: string) => s.replace(/\n/g, " ").slice(0, 200);
   writeFileSync(file, `---\nname: ${clean}\ndescription: ${safe(desc)}\n---\n${body}\n`);
   return { name: clean, path: file };
+}
+
+export interface AuditIssue { kind: "empty-desc" | "thin" | "overlap" | "stale"; skill: string; detail: string }
+export interface AuditReport { total: number; issues: AuditIssue[] }
+
+function keywords(s: string): Set<string> {
+  return new Set(s.toLowerCase().split(/[^a-z0-9à-öø-ÿ]+/i).filter((w) => w.length > 2));
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+
+/**
+ * Curator: valuta il catalogo — description vuote, istruzioni esili,
+ * sovrapposizioni funzionali (Jaccard su nome+descrizione ≥ 0.5),
+ * file non toccati da 180 giorni. Mai throw.
+ */
+export function auditSkills(): AuditReport {
+  try {
+    const all = listSkills();
+    const issues: AuditIssue[] = [];
+    for (const s of all) {
+      if (!s.description) issues.push({ kind: "empty-desc", skill: s.name, detail: "manca description: non indicizzabile" });
+      if (s.instructions.length < 100) issues.push({ kind: "thin", skill: s.name, detail: `istruzioni esili (${s.instructions.length} char)` });
+      try {
+        const age = Date.now() - statSync(s.path).mtimeMs;
+        if (age > 180 * 86400_000) issues.push({ kind: "stale", skill: s.name, detail: `non toccata da ${Math.round(age / 86400_000)} giorni` });
+      } catch { /* mtime illeggibile: ignora */ }
+    }
+    const keys = all.map((s) => ({ name: s.name, k: keywords(`${s.name} ${s.description}`) }));
+    for (let i = 0; i < keys.length && issues.length < 40; i++) {
+      for (let j = i + 1; j < keys.length && issues.length < 40; j++) {
+        const sim = jaccard(keys[i].k, keys[j].k);
+        if (sim >= 0.5) {
+          issues.push({ kind: "overlap", skill: `${keys[i].name} ↔ ${keys[j].name}`, detail: `sovrapposizione funzionale (sim ${sim.toFixed(2)}): valuta fusione` });
+        }
+      }
+    }
+    return { total: all.length, issues };
+  } catch {
+    return { total: 0, issues: [] };
+  }
+}
+
+/** Potatura: elimina una skill. Throw se manca o nome invalido. */
+export function pruneSkill(name: string): { pruned: string } {
+  const clean = String(name ?? "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9\-_]{0,40}$/.test(clean)) throw new Error(`nome skill invalido: ${String(name).slice(0, 60)}`);
+  const dir = join(skillsDir(), clean);
+  if (!existsSync(join(dir, "SKILL.md"))) throw new Error(`skill non trovata: ${clean}`);
+  rmSync(dir, { recursive: true, force: true });
+  return { pruned: clean };
+}
+
+/**
+ * Composizione: nuova skill-workflow che riusa skill esistenti.
+ * Le componenti devono esistere; le istruzioni citano come usarle in ordine.
+ * Throw se invalida (stesse regole di create).
+ */
+export function composeSkill(name: string, description: string, from: string[], extra = ""): { name: string; path: string } {
+  const parts = (Array.isArray(from) ? from : []).map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+  if (parts.length < 2) throw new Error("compose vuole almeno 2 skill componenti");
+  if (parts.length > 8) throw new Error("compose: max 8 componenti");
+  const missing = parts.filter((p) => !getSkill(p));
+  if (missing.length) throw new Error(`componenti assenti: ${missing.join(", ")}`);
+  const steps = parts.map((p, i) => `${i + 1}. Applica la skill "${p}": ${getSkill(p)!.description || "vedi SKILL.md"}`).join("\n");
+  const tail = String(extra ?? "").trim();
+  const instructions = `Workflow composto da: ${parts.join(", ")}.\n${steps}${tail ? `\nNote: ${tail}` : ""}\nEsegui i passi in ordine; se uno fallisce, fermati e riporta.`;
+  return createSkill(name, description, instructions);
 }
