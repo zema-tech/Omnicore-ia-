@@ -1,0 +1,26 @@
+{
+  "name": "omnicore-vscode",
+  "displayName": "Omnicore IA",
+  "description": "Chat e agente Omnicore dentro VS Code (bridge HTTP, zero dipendenze)",
+  "version": "0.1.0",
+  "publisher": "omnicore",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["AI", "Chat"],
+  "activationEvents": ["onCommand:omnicore.chat", "onCommand:omnicore.ask", "onCommand:omnicore.sendSelection"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "omnicore.chat", "title": "Omnicore: apri chat" },
+      { "command": "omnicore.ask", "title": "Omnicore: chiedi all'agente" },
+      { "command": "omnicore.sendSelection", "title": "Omnicore: invia selezione all'agente" }
+    ],
+    "configuration": {
+      "title": "Omnicore",
+      "properties": {
+        "omnicore.url": { "type": "string", "default": "http://127.0.0.1:8100", "description": "Base URL del server Omnicore (npm run serve)" },
+        "omnicore.token": { "type": "string", "default": "", "description": "Bearer token (OMNICORE_API_TOKEN del server)" }
+      }
+    }
+  }
+}
