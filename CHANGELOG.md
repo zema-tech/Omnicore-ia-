@@ -1,5 +1,25 @@
 # Changelog
 
+## Tappa 34 — TUI a pannelli ANSI
+`npm run tui`: chat | tool | stato, token live, input raw con storia,
+slash, Ctrl+C per interrompere. Zero dipendenze (niente blessed/ink).
+
+## Tappa 33 — Estensione VS Code
+Chat SSE, ask rapido, invio selezione, status cervello. Plain JS nel repo,
+install manuale documentato (non verificabile in CI: checklist in README).
+
+## Tappa 32 — Interrupt mid-turn
+`shouldAbort` nel loop (graceful stop con voce `abort`), Ctrl+C in chat,
+`POST /api/chat/abort` per i turni streaming.
+
+## Tappa 31 — Video generate
+`video.generate` via FAL (submit→poll→download nel workspace, max 100MB),
+conferma obbligatoria (costa denaro vero).
+
+## Tappa 30 — Skill precaricate
+Sei pack SKILL.md (web-research, code-review, git-workflow, testing,
+sys-monitor, deep-notes), tutti validati dal curator.
+
 ## Tappa 29 — Cookbook modelli locali
 `cookbook.scan/recommend/serve`: hardware via node:os, fit score su catalogo
 curato, pull via API Ollama. Senza Ollama: errore onesto con hint.
