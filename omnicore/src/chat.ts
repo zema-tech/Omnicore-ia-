@@ -16,7 +16,17 @@ async function main(): Promise<void> {
   let sid: string | null = null;
 
   const rl = createInterface({ input: process.stdin, output: process.stdout, prompt: "omnicore> " });
-  console.log("Omnicore — scrivi, /help per i comandi, /quit per uscire.");
+  console.log("Omnicore — scrivi, /help per i comandi, /quit per uscire. Ctrl+C interrompe il turno.");
+  let busy = false;
+  let abortTurn = false;
+  rl.on("SIGINT", () => {
+    if (busy) {
+      abortTurn = true;
+      process.stdout.write("\n(interrompo dopo il tool corrente…)\n");
+    } else {
+      rl.close();
+    }
+  });
 
   const ask = (): void => rl.prompt();
   rl.on("line", (line) => {
@@ -35,13 +45,17 @@ async function main(): Promise<void> {
       await handleSlash(slash.cmd, slash.args);
       return;
     }
+    busy = true;
+    abortTurn = false;
     const res = await runAgent(text, {
       directory,
+      shouldAbort: () => abortTurn,
       onEvent: (e) => {
         if (e.event === "token" && !stream) return;
         process.stdout.write(formatEvent(e));
       },
     });
+    busy = false;
     if (stream) process.stdout.write("\n");
     sid = logMessage(sid, { text, intent: res.intent, handler: "agent", ok: true, answer: res.reply.slice(0, 2000) });
   }

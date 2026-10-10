@@ -93,7 +93,8 @@ export type ToolName =
   | "world.exec"
   | "decide.rank"
   | "decide.verify"
-  | "respond";
+  | "respond"
+  | "abort"; // voce di traccia: prelazione utente, non un tool pianificabile
 
 export interface ToolCall {
   name: ToolName;

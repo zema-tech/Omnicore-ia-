@@ -5,6 +5,7 @@ Uso:  python3 server.py [--port 8100]      (da omnicore/)
 Poi:  http://127.0.0.1:8100               (dashboard)
        POST /api/chat   {text, session_id?} -> agent loop TS + log in sessione unica
        POST /api/chat/stream {text}  -> SSE live (token/tool_end/loop_end/result)
+       POST /api/chat/abort {session_id} -> interrompe il turno in corso
       POST /api/route  {text}              -> {intent, handler} (solo classifica, non esegue)
       POST /api/fuse   {text}              -> alias legacy di /api/chat (stesso loop TS)
       POST /api/omni   {source, text}      -> esegue OmniLang (DSL separata)
@@ -47,6 +48,8 @@ API_TOKEN = os.environ.get("OMNICORE_API_TOKEN", "")
 DATA = HERE / "data"
 SESSIONS_FILE = DATA / "sessions.json"
 _lock = threading.Lock()
+# Turni in corso (streaming): session_id -> Popen, per /api/chat/abort.
+_RUNNING: dict = {}
 
 
 def _load() -> dict:
@@ -290,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
             # SSE live: righe NDJSON di `node --stream` girate come eventi.
             # A fine turno logga la sessione (dall'evento result) come /api/chat.
             text = str(body.get("text", ""))
-            session_id = body.get("session_id")
+            sid0 = str(body.get("session_id") or f"s{int(time.time() * 1000)}")
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-cache")
@@ -306,6 +309,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(f"data: {json.dumps({'event': 'error', 'error': 'node non trovato'})}\n\n".encode())
                 return
             assert p.stdout is not None
+            with _lock:
+                _RUNNING[sid0] = p
             final: dict = {}
             try:
                 for line in p.stdout:
@@ -327,8 +332,10 @@ class Handler(BaseHTTPRequestHandler):
                     p.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     p.kill()
+                with _lock:
+                    _RUNNING.pop(sid0, None)
             if final:
-                sid = _log(session_id or None,
+                sid = _log(sid0,
                            {"text": text, "intent": str(final.get("intent", "chat")),
                             "handler": "agent", "ok": True,
                             "answer": str(final.get("reply", ""))[:2000],
@@ -338,6 +345,20 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError):
                     pass
+            return
+        if self.path == "/api/chat/abort":
+            sid = str(body.get("session_id") or "")
+            with _lock:
+                p = _RUNNING.pop(sid, None) if sid else None
+            if p is None:
+                self._json({"ok": False, "error": "nessun turno in corso per questa sessione"})
+                return
+            try:
+                p.kill()
+            except Exception as e:
+                self._json({"ok": False, "error": str(e)[:160]})
+                return
+            self._json({"ok": True, "session_id": sid})
             return
         self._json({"error": "not found"}, 404)
 

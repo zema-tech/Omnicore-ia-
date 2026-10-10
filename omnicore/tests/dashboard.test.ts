@@ -80,4 +80,21 @@ describe("dashboard server", () => {
       clearTimeout(t);
     }
   });
+  it("abort: sid ignoto onesto, turno in corso killato", { timeout: 90000 }, async () => {
+    const no = await fetch(`${BASE}/api/chat/abort`, {
+      method: "POST", headers: HEADERS, body: JSON.stringify({ session_id: "mai-esistita" }),
+    });
+    assert.equal(((await no.json()) as any).ok, false);
+    const sid = `abort-${Date.now()}`;
+    const pending = fetch(`${BASE}/api/chat/stream`, {
+      method: "POST", headers: HEADERS, body: JSON.stringify({ text: "ciao", session_id: sid }),
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    const ab = await fetch(`${BASE}/api/chat/abort`, {
+      method: "POST", headers: HEADERS, body: JSON.stringify({ session_id: sid }),
+    });
+    assert.equal(((await ab.json()) as any).ok, true);
+    const text = await (await pending).text();
+    assert.ok(!text.includes('"event":"result"'), "dopo abort niente result");
+  });
 });

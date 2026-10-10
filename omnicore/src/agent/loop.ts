@@ -27,6 +27,8 @@ export interface AgentResult {
   system: string;
   /** Giri osserva→agisci eseguiti (1 = giro singolo, niente LLM o già fatto). */
   rounds: number;
+  /** Vero se l'utente ha interrotto il turno (shouldAbort). */
+  aborted: boolean;
 }
 
 /** Eventi live del loop (streaming): token, tool_start/end, loop_end. */
@@ -39,6 +41,8 @@ export type LoopEvent =
 export interface RunAgentOpts {
   directory?: string;
   onEvent?: (e: LoopEvent) => void;
+  /** Prelazione: se torna true, il giro si ferma dopo il tool corrente. */
+  shouldAbort?: () => boolean;
 }
 
 /** Frasi con cui l'utente conferma esplicitamente ("confermo: ...", "sì, procedi"). */
@@ -80,12 +84,12 @@ async function handleApprovalAnswer(
   if (!found) {
     const reply = `Non trovo approvazioni con id ${id}: forse è di un'altra sessione o è già stata archiviata. Descrivimi pure l'azione da capo.`;
     trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
   }
   if (found.status !== "open") {
     const reply = `L'approvazione ${id} è già stata decisa (${found.status}): nessuna doppia esecuzione.`;
     trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
   }
   approvalRespond(id, allow);
   if (!allow || !found.call) {
@@ -93,7 +97,7 @@ async function handleApprovalAnswer(
       ? `Approvazione ${id} registrata, ma senza azione eseguibile collegata: niente da fare.`
       : `Azione ${id} negata e archiviata: non è stato eseguito nulla.`;
     trace.push({ name: "permissions.respond", ok: true, via: "permissions", data: { id, allow } });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
   }
   // Via umana confermata: esegue l'azione registrata (conferma forzata, decide già passato).
   const exec = await runTool(
@@ -104,7 +108,7 @@ async function handleApprovalAnswer(
   const reply = exec.ok
     ? `Approvato ed eseguito ${id} (${found.call.name}): ${shortResult(exec)}.`
     : `Approvato ${id}, ma l'esecuzione è fallita: ${String(exec.error ?? "?").slice(0, 300)}`;
-  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
+  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
 }
 
 function shortResult(t: ToolResult): string {
@@ -158,6 +162,14 @@ export async function runAgent(
   const failedKeys: string[] = [];
   const allCalls: ToolCall[] = [];
   let rounds = 0;
+  let aborted = false;
+  const isAborted = (): boolean => {
+    try {
+      return opts.shouldAbort?.() === true;
+    } catch {
+      return false;
+    }
+  };
 
   // Un giro: filtri profilo/conferma → decide sulle distruttive → esecuzione.
   const runCalls = async (incoming: ToolCall[]): Promise<void> => {
@@ -168,6 +180,12 @@ export async function runAgent(
     );
     allCalls.push(...calls);
     for (const call of calls) {
+      // Prelazione: completa il giro al prossimo confine, non a metà tool.
+      if (isAborted()) {
+        aborted = true;
+        trace.push({ name: "abort", ok: false, via: "omnicore", error: "turno interrotto dall'utente: mi fermo qui" });
+        break;
+      }
       emit({ event: "tool_start", name: call.name });
       // Decide: le azioni distruttive passano sempre da verify (la conferma
       // utente abilita, ma loop/offline restano bloccati).
@@ -210,7 +228,7 @@ export async function runAgent(
   // Budget anti-loop: OMNICORE_MAX_ROUNDS giri totali (default 4, max 10).
   const maxRounds = Math.max(1, Math.min(Number(process.env["OMNICORE_MAX_ROUNDS"] ?? "4"), 10));
   let mark = 0;
-  while (planner === "llm" && rounds < maxRounds) {
+  while (planner === "llm" && rounds < maxRounds && !aborted) {
     const next = await planFollowup(userText, intent, summarizeTrace(trace.slice(mark)));
     mark = trace.length;
     if (!next || next.length === 0) break;
@@ -230,8 +248,9 @@ export async function runAgent(
     planner,
     plan: allCalls,
     trace,
-    reply: mind.answer,
+    reply: aborted ? `Mi sono fermato su tua richiesta. ${mind.answer}` : mind.answer,
     system: SYSTEM_PROMPT.slice(0, 200) + "…",
     rounds,
+    aborted,
   };
 }

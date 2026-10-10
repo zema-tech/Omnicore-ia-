@@ -25,7 +25,8 @@ export const SLASH_HELP = [
   "/new — nuova sessione",
   "/sessions — elenca sessioni",
   "/resume <id> — rileggi ultimi messaggi di una sessione",
-  "/quit — esci (anche Ctrl+C, Ctrl+D)",
+  "/quit — esci (anche Ctrl+C a riposo, Ctrl+D)",
+  "Ctrl+C durante un turno — interrompe dopo il tool corrente",
 ].join("\n");
 
 /** Una riga stampabile per evento live (token grezzo, resto con prefisso). */
