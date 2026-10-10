@@ -3,6 +3,7 @@
 import { SYSTEM_PROMPT, banner } from "./identity.ts";
 import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
 import { resolvePlan, planFollowup, summarizeTrace } from "./plan.ts";
+import { learnFromTurn } from "../modules/memories.ts";
 import { decideVerify } from "../decide/index.ts";
 import { DESTRUCTIVE_TOOLS, attemptKey } from "../decide/rules.ts";
 import { approvalRequest, approvalGet, approvalRespond } from "../modules/permissions.ts";
@@ -29,6 +30,8 @@ export interface AgentResult {
   rounds: number;
   /** Vero se l'utente ha interrotto il turno (shouldAbort). */
   aborted: boolean;
+  /** Fatti appresi e salvati in memoria in questo turno. */
+  learned: number;
 }
 
 /** Eventi live del loop (streaming): token, tool_start/end, loop_end. */
@@ -84,12 +87,12 @@ async function handleApprovalAnswer(
   if (!found) {
     const reply = `Non trovo approvazioni con id ${id}: forse è di un'altra sessione o è già stata archiviata. Descrivimi pure l'azione da capo.`;
     trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false, learned: 0 };
   }
   if (found.status !== "open") {
     const reply = `L'approvazione ${id} è già stata decisa (${found.status}): nessuna doppia esecuzione.`;
     trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false, learned: 0 };
   }
   approvalRespond(id, allow);
   if (!allow || !found.call) {
@@ -97,7 +100,7 @@ async function handleApprovalAnswer(
       ? `Approvazione ${id} registrata, ma senza azione eseguibile collegata: niente da fare.`
       : `Azione ${id} negata e archiviata: non è stato eseguito nulla.`;
     trace.push({ name: "permissions.respond", ok: true, via: "permissions", data: { id, allow } });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false, learned: 0 };
   }
   // Via umana confermata: esegue l'azione registrata (conferma forzata, decide già passato).
   const exec = await runTool(
@@ -108,7 +111,7 @@ async function handleApprovalAnswer(
   const reply = exec.ok
     ? `Approvato ed eseguito ${id} (${found.call.name}): ${shortResult(exec)}.`
     : `Approvato ${id}, ma l'esecuzione è fallita: ${String(exec.error ?? "?").slice(0, 300)}`;
-  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false };
+  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1, aborted: false, learned: 0 };
 }
 
 function shortResult(t: ToolResult): string {
@@ -241,6 +244,12 @@ export async function runAgent(
   trace.push(respond);
   emit({ event: "loop_end", rounds, planner });
 
+  // Memoria attiva: impara fatti espliciti dal turno (best-effort, mai fatale).
+  let learned = 0;
+  try {
+    learned = (await learnFromTurn(userText)).saved;
+  } catch { /* mai fatale */ }
+
   return {
     agent: banner(),
     text: userText,
@@ -252,5 +261,6 @@ export async function runAgent(
     system: SYSTEM_PROMPT.slice(0, 200) + "…",
     rounds,
     aborted,
+    learned,
   };
 }

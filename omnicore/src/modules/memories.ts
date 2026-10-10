@@ -175,7 +175,7 @@ export async function memRecall(query: string, opts: { limit?: number; session?:
   }
 }
 
-export const memories = { file: memoriesFile, store: memStore, recall: memRecall, forget: memForget, count: memCount, close: memClose, cosine, embed: memEmbed };
+export const memories = { file: memoriesFile, store: memStore, recall: memRecall, forget: memForget, count: memCount, close: memClose, cosine, embed: memEmbed, learn: learnFromTurn };
 
 /** Modello embedding locale (Ollama). Vuoto = vettori disabilitati. */
 export function embedModel(): string {
@@ -189,8 +189,7 @@ function ollamaHost(): string {
 /**
  * Embedding via Ollama /api/embeddings (locale, gratis, no key).
  * Ritorna null se Ollama assente o modello mancante. Mai throw.
- */
-export async function memEmbed(text: string, model?: string): Promise<number[] | null> {
+ */export async function memEmbed(text: string, model?: string): Promise<number[] | null> {
   const m = model ?? embedModel();
   if (!m || !String(text ?? "").trim()) return null;
   try {
@@ -213,5 +212,45 @@ export async function memEmbed(text: string, model?: string): Promise<number[] |
     }
   } catch {
     return null;
+  }
+}
+
+// Fatti espliciti candidati all'apprendimento (conservativo: solo frasi
+// dichiarative chiare, come mind/memory FACT_RE ma con cattura del valore).
+const LEARN_RES = [
+  /(?:ricordati che|ricorda che|ricorda:|segna che|appunta che)\s+(.{4,160})/i,
+  /(?:mi chiamo|il mio nome è|sono)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ' .-]{1,40})/i,
+  /(?:preferisco|odio|adoro)\s+(.{4,120})/i,
+  /(?:lavoro con|uso spesso|abito a|vivo a|sono un|sono una)\s+(.{4,120})/i,
+];
+
+/**
+ * Apprendimento attivo: estrae fatti espliciti dal turno e li salva se nuovi
+ * (deduplica via recall). Max 3/turno. Disattivabile con
+ * OMNICORE_ACTIVE_MEMORY=0. Mai throw: ritorna {saved}.
+ */
+export async function learnFromTurn(userText: string): Promise<{ saved: number }> {
+  try {
+    if (process.env["OMNICORE_ACTIVE_MEMORY"] === "0") return { saved: 0 };
+    const found: string[] = [];
+    for (const re of LEARN_RES) {
+      const m = String(userText ?? "").match(re);
+      if (m?.[1]) {
+        const fact = m[1].trim().replace(/[.!?]+$/, "").slice(0, 200);
+        if (fact.length >= 3 && !found.includes(fact)) found.push(fact);
+      }
+      if (found.length >= 3) break;
+    }
+    let saved = 0;
+    for (const fact of found) {
+      const existing = await memRecall(fact, { limit: 3 });
+      const core = fact.slice(0, 24).toLowerCase();
+      if (existing.some((h) => h.content.toLowerCase().includes(core))) continue;
+      await memStore(fact);
+      saved++;
+    }
+    return { saved };
+  } catch {
+    return { saved: 0 };
   }
 }
