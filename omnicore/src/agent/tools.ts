@@ -18,6 +18,7 @@ import { memories } from "../modules/memories.ts";
 import { websearch } from "../modules/websearch.ts";
 import { research } from "../modules/research.ts";
 import { cookbook } from "../modules/cookbook.ts";
+import { video } from "../modules/video.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -55,6 +56,7 @@ export type ToolName =
   | "cookbook.scan"
   | "cookbook.recommend"
   | "cookbook.serve"
+  | "video.generate"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -373,6 +375,22 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.detail }
           : { name: call.name, ok: false, via: r.via, error: r.detail };
+      }
+      case "video.generate": {
+        // Costa denaro vero + scrive file: conferma come i distruttivi.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "video", needsConfirm: true, preview: `video.generate: ${String(args.prompt ?? "").slice(0, 250)} (a pagamento)` };
+        }
+        const r = await video.generate({
+          prompt: String(args.prompt ?? ""),
+          model: typeof args.model === "string" ? args.model : undefined,
+          durationS: typeof args.duration === "number" ? args.duration : undefined,
+          size: typeof args.size === "string" ? args.size : undefined,
+          filename: typeof args.filename === "string" ? args.filename : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: { file: r.file, url: r.url } }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "generazione fallita" };
       }
       case "todo.add": {
         try {
@@ -722,6 +740,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "cookbook.scan", description: "Hardware + modelli locali installati" },
   { name: "cookbook.recommend", description: "Modelli consigliati per questo hardware" },
   { name: "cookbook.serve", description: "Scarica modello via Ollama {model} (conferma)" },
+  { name: "video.generate", description: "Genera video da prompt {prompt, ...} (conferma, a pagamento)" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },

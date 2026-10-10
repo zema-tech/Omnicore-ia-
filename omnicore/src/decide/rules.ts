@@ -39,6 +39,7 @@ const DESTRUCTIVE = new Set([
   "mcp.reload",
   "code.lsp",
   "cookbook.serve",
+  "video.generate",
   "world.exec",
 ]);
 
