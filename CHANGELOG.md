@@ -1,5 +1,24 @@
 # Changelog
 
+## Tappa 44 — Debugger DAP
+Client DAP generico via stdio + `debug.attach/break/go/vars`. Provato
+contro adapter finto con framing reale. Esecuzione con conferma.
+
+## Tappa 43 — MCP server mode
+`npm run mcp-serve`: Omnicore come server MCP stdio (tools/list-call,
+resources sessions/skills/doctor). Pronto per Claude Desktop/Cursor.
+
+## Tappa 42 — STT audio
+Trascrizione whisper.cpp o OpenAI + `meeting.attach` (audio→segmenti live).
+Niente microfono/streaming: serve hardware esterno.
+
+## Tappa 41 — Signal
+Backend via signal-cli esterno (send/poll/parse). Senza binary: istruzioni
+oneste. Stesso pattern di Ollama e tsserver.
+
+## Tappa 40 — 32 skill pack
+Da 8 a 32 pack (produttività, sistema, dev, research), tutti validati.
+
 ## Tappa 39 — WhatsApp + Email nativi
 WhatsApp Cloud API (invio + parser/verify webhook) ed Email IMAP/SMTP
 scritti a mano (STARTTLS obbligatorio, PEEK senza segnare letto).
