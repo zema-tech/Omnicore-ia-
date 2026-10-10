@@ -32,6 +32,7 @@ const DESTRUCTIVE = new Set([
   "mcp.list",
   "mcp.call",
   "mcp.reload",
+  "code.lsp",
   "world.exec",
 ]);
 
@@ -82,6 +83,9 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "skills.get" ||
       name === "code.glob" ||
       name === "code.grep" ||
+      name === "code.symbols" ||
+      name === "code.definition" ||
+      name === "code.references" ||
       name === "web.fetch" ||
       name.startsWith("todo.")
     ) {

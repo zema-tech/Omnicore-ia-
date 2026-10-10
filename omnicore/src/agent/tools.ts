@@ -12,6 +12,7 @@ import { channels } from "../modules/channels.ts";
 import { telegram } from "../modules/telegram.ts";
 import { mcp } from "../modules/mcp.ts";
 import { memories } from "../modules/memories.ts";
+import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -37,6 +38,10 @@ export type ToolName =
   | "code.edit"
   | "code.glob"
   | "code.grep"
+  | "code.symbols"
+  | "code.definition"
+  | "code.references"
+  | "code.lsp"
   | "web.fetch"
   | "todo.add"
   | "todo.list"
@@ -247,6 +252,49 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.hits }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "grep fallito" };
+      }
+      case "code.symbols": {
+        const r = indexSymbols((args.dir as string | undefined) ?? ctx.directory);
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(native-symbols)", data: r.symbols.slice(0, 200) }
+          : { name: call.name, ok: false, via: "code(native-symbols)", error: r.error ?? "indice fallito" };
+      }
+      case "code.definition": {
+        const name = String(args.symbol ?? args.name ?? "");
+        if (!name) return { name: call.name, ok: false, via: "code(native-symbols)", error: "code.definition vuole {symbol}" };
+        const r = findDefinition(name, ctx.directory);
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(native-symbols)", data: r.defs }
+          : { name: call.name, ok: false, via: "code(native-symbols)", error: r.error ?? "non trovato" };
+      }
+      case "code.references": {
+        const name = String(args.symbol ?? args.name ?? "");
+        if (!name) return { name: call.name, ok: false, via: "code(native-symbols)", error: "code.references vuole {symbol}" };
+        const r = findReferences(name, ctx.directory);
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(native-symbols)", data: r.refs }
+          : { name: call.name, ok: false, via: "code(native-symbols)", error: r.error ?? "ricerca fallita" };
+      }
+      case "code.lsp": {
+        // Language server esterno: esegue un binario -> conferma come mcp/shell.
+        const command = String(args.command ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "code(lsp)", needsConfirm: true, preview: `code.lsp ${command} ${String(args.method ?? "definition")} ${String(args.file ?? "")}` };
+        }
+        if (!command) return { name: call.name, ok: false, via: "code(lsp)", error: "code.lsp vuole {command, method, file, line}" };
+        const method = String(args.method ?? "definition") === "references" ? "references" : "definition";
+        const fn = method === "references" ? lsp.references : lsp.definition;
+        const r = await fn(String(args.file ?? ""), {
+          line: Number(args.line ?? 0),
+          character: Number(args.character ?? 0),
+        }, {
+          command,
+          args: Array.isArray(args.args) ? args.args.map(String) : [],
+          root: ctx.directory,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(lsp)", data: r.locations }
+          : { name: call.name, ok: false, via: "code(lsp)", error: r.error ?? "lsp fallito" };
       }
       case "web.fetch": {
         const url = String(args.url ?? ctx.text?.match(/https?:\/\/[^\s"'“”<>]+/)?.[0] ?? "");
@@ -512,6 +560,10 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "code.edit", description: "Diff preview {path,oldText,newText}; apply:true scrive (conferma)" },
   { name: "code.glob", description: "File per pattern {pattern}" },
   { name: "code.grep", description: "Cerca regex nei file {pattern, dir}" },
+  { name: "code.symbols", description: "Indice simboli del workspace {dir?}" },
+  { name: "code.definition", description: "Definizioni di un simbolo {symbol}" },
+  { name: "code.references", description: "Riferimenti a un simbolo {symbol}" },
+  { name: "code.lsp", description: "Language server esterno {command, method, file, line} (conferma)" },
   { name: "web.fetch", description: "Leggi una pagina pubblica {url} (solo testo, anti-SSRF)" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
