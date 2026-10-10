@@ -15,6 +15,10 @@ describe("skill precaricate", () => {
       assert.ok(s.instructions.length >= 100, `${s.name}: istruzioni esili`);
     }
   });
+  it("catalogo ampio: almeno 30 pack validi", () => {
+    const all = listSkills();
+    assert.ok(all.length >= 30, `pack: ${all.length}`);
+  });
   it("web-research trovabile e cita tool veri", () => {
     const s = getSkill("web-research")!;
     assert.ok(s.instructions.includes("web.search"));
