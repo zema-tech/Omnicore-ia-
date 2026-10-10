@@ -11,6 +11,7 @@ import { todos } from "../modules/todo.ts";
 import { channels } from "../modules/channels.ts";
 import { telegram } from "../modules/telegram.ts";
 import { mcp } from "../modules/mcp.ts";
+import { memories } from "../modules/memories.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -23,6 +24,9 @@ import { moduleGates } from "../config.ts";
 export type ToolName =
   | "memory.search"
   | "memory.read"
+  | "memory.store"
+  | "memory.recall"
+  | "memory.forget"
   | "memory.note_save"
   | "memory.note_search"
   | "code.run"
@@ -117,6 +121,30 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "memory.note_search": {
         const hits = searchNotes(String(args.query ?? ctx.text ?? ""), Number(args.limit ?? 5));
         return { name: call.name, ok: true, via: "memory(vault)", data: hits };
+      }
+      case "memory.store": {
+        try {
+          const r = memories.store(String(args.content ?? args.text ?? ""), {
+            session: typeof args.session === "string" ? args.session : undefined,
+            tags: Array.isArray(args.tags) ? args.tags.map(String) : undefined,
+          });
+          return { name: call.name, ok: true, via: "memory(store)", data: r };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "memory(store)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "memory.recall": {
+        const hits = memories.recall(String(args.query ?? ctx.text ?? ""), {
+          limit: Number(args.limit ?? 5),
+          session: typeof args.session === "string" ? args.session : undefined,
+        });
+        return { name: call.name, ok: true, via: "memory(store)", data: hits };
+      }
+      case "memory.forget": {
+        const done = memories.forget(Number(args.id));
+        return done
+          ? { name: call.name, ok: true, via: "memory(store)", data: { forgotten: args.id } }
+          : { name: call.name, ok: false, via: "memory(store)", error: `ricordo non trovato: ${args.id}` };
       }
       case "code.run": {
         const prompt = String(args.prompt ?? ctx.text ?? "");
@@ -470,6 +498,9 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
 
 export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "memory.search", description: "Cerca nella memoria a lungo termine" },
+  { name: "memory.store", description: "Salva ricordo strutturato {content, session?, tags?}" },
+  { name: "memory.recall", description: "Richiama ricordi BM25 {query, limit?, session?}" },
+  { name: "memory.forget", description: "Dimentica ricordo {id}" },
   { name: "memory.read", description: "Leggi una sessione/memoria per chiave" },
   { name: "memory.note_save", description: "Salva una nota nel vault (titolo + testo)" },
   { name: "memory.note_search", description: "Cerca nelle note del vault" },

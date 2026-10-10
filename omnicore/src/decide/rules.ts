@@ -66,6 +66,9 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       out.push({ name, score: 10, reason: "banale/sicuro" });
     } else if (
       name === "memory.read" ||
+      name === "memory.store" ||
+      name === "memory.recall" ||
+      name === "memory.forget" ||
       name === "channel.status" ||
       name === "telegram.me" ||
       name === "telegram.poll" ||

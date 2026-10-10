@@ -10,9 +10,10 @@
 import { hermes } from "../adapters/hermes.ts";
 import { loadConfig } from "../config.ts";
 import { recallMem, remember as storeRemember, recentHistory } from "../mind/memory.ts";
+import { memRecall } from "../modules/memories.ts";
 
 export interface MemoryHit {
-  source: "omnicore" | "hermes" | "session";
+  source: "omnicore" | "hermes" | "session" | "store";
   text: string;
   ts?: number;
 }
@@ -51,6 +52,14 @@ export async function search(query: string, limit = 5): Promise<{ hits: MemoryHi
       }
     }
     vias.push("sessions");
+  } catch { /* best-effort */ }
+
+  // 4) memoria strutturata SQLite (BM25, sempre disponibile come la nativa)
+  try {
+    for (const h of memRecall(query, { limit })) {
+      if (h.content) hits.push({ source: "store", text: h.content.slice(0, 280), ts: h.updated });
+    }
+    vias.push("store");
   } catch { /* best-effort */ }
 
   return { hits: hits.slice(0, limit * 2), via: `memory(${vias.join("+") || "empty"})` };
