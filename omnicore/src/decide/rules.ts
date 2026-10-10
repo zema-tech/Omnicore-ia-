@@ -100,6 +100,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "web.fetch" ||
       name === "web.search" ||
       name === "research.deep" ||
+      name === "github.read" ||
       name === "cookbook.scan" ||
       name === "cookbook.recommend" ||
       name.startsWith("todo.")
