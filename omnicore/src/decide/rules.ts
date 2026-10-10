@@ -88,6 +88,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "skills.search" ||
       name === "skills.get" ||
       name === "skills.audit" ||
+      name === "budget.status" ||
       name === "code.glob" ||
       name === "code.grep" ||
       name === "code.symbols" ||

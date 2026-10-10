@@ -13,6 +13,7 @@ import { telegram } from "../modules/telegram.ts";
 import { discord } from "../modules/discord.ts";
 import { slack } from "../modules/slack.ts";
 import { mcp } from "../modules/mcp.ts";
+import { budget } from "../modules/budget.ts";
 import { memories } from "../modules/memories.ts";
 import { websearch } from "../modules/websearch.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
@@ -61,6 +62,7 @@ export type ToolName =
   | "mcp.list"
   | "mcp.call"
   | "mcp.reload"
+  | "budget.status"
   | "cron.add"
   | "cron.list"
   | "cron.remove"
@@ -429,6 +431,9 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         }
         return { name: call.name, ok: true, via: "mcp", data: mcp.stop() };
       }
+      case "budget.status": {
+        return { name: call.name, ok: true, via: "budget", data: budget.status() };
+      }
       case "cron.add": {
         try {
           const job = cron.add(String(args.name ?? ""), (args.schedule ?? {}) as never, (args.payload ?? {}) as Record<string, unknown>);
@@ -680,6 +685,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "mcp.list", description: "Server MCP + tool scoperti (conferma)" },
   { name: "mcp.call", description: "Chiama tool MCP {server, tool, args} (conferma)" },
   { name: "mcp.reload", description: "Ferma tutti i server MCP (conferma)" },
+  { name: "budget.status", description: "Token spesi oggi, budget, alert" },
   { name: "cron.add", description: "Pianifica un job {name, schedule, payload}" },
   { name: "cron.list", description: "Elenca i job pianificati" },
   { name: "cron.remove", description: "Rimuovi un job {name}" },

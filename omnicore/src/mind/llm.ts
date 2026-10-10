@@ -17,6 +17,7 @@ export interface LlmStatus {
 }
 
 import { loadConfig } from "../config.ts";
+import { recordUsage, budgetGate, estimateTokens } from "../modules/budget.ts";
 
 export function llmConfig() {
   // env vince su omnicore.config.json, che vince sui default (dentro loadConfig).
@@ -57,12 +58,23 @@ async function postJson(url: string, payload: unknown, headers: Record<string, s
 async function chatApi(system: string, user: string, maxTokens: number): Promise<string | null> {
   const c = llmConfig();
   if (!c.baseUrl) return null;
+  const gate = budgetGate(c.model);
+  if (!gate.allowed) return null; // budget esaurito: degrada a euristica
+  const t0 = Date.now();
   try {
     const h: Record<string, string> = c.apiKey ? { Authorization: `Bearer ${c.apiKey}` } : {};
     const res = await postJson(`${c.baseUrl}/chat/completions`,
-      { model: c.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: maxTokens, temperature: 0.6 },
+      { model: gate.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: maxTokens, temperature: 0.6 },
       h, c.timeoutMs);
     const txt = res?.choices?.[0]?.message?.content?.trim();
+    const u = res?.usage ?? {};
+    recordUsage({
+      model: gate.model, via: "api",
+      promptTokens: Number(u.prompt_tokens ?? estimateTokens(system + user)),
+      completionTokens: Number(u.completion_tokens ?? (txt ? estimateTokens(txt) : 0)),
+      estimated: u.prompt_tokens === undefined,
+      ms: Date.now() - t0,
+    });
     return txt || null;
   } catch {
     return null;
@@ -72,11 +84,19 @@ async function chatApi(system: string, user: string, maxTokens: number): Promise
 async function chatLocal(system: string, user: string, maxTokens: number): Promise<string | null> {
   const c = llmConfig();
   void maxTokens;
+  const t0 = Date.now();
   try {
     const res = await postJson(`${c.ollama}/api/generate`,
       { model: c.localModel, prompt: `${system}\n\nUtente: ${user}\nOmnicore:`, stream: false },
       {}, c.timeoutMs);
     const txt = String(res?.response ?? "").trim();
+    recordUsage({
+      model: c.localModel, via: "local",
+      promptTokens: Number(res?.prompt_eval_count ?? estimateTokens(system + user)),
+      completionTokens: Number(res?.eval_count ?? (txt ? estimateTokens(txt) : 0)),
+      estimated: res?.eval_count === undefined,
+      ms: Date.now() - t0,
+    });
     return txt || null;
   } catch {
     return null;
@@ -103,6 +123,12 @@ export async function llmChatStream(
 ): Promise<{ text: string; via: LlmProvider; streamed: boolean } | null> {
   const c = llmConfig();
   if (c.provider !== "local" && c.baseUrl) {
+    const gate = budgetGate(c.model);
+    if (!gate.allowed) {
+      const plain = await llmChatVia(system, user, maxTokens);
+      return plain ? { ...plain, streamed: false } : null;
+    }
+    const t0 = Date.now();
     try {
       const h: Record<string, string> = c.apiKey ? { Authorization: `Bearer ${c.apiKey}` } : {};
       const ctl = new AbortController();
@@ -111,7 +137,7 @@ export async function llmChatStream(
         const r = await fetch(`${c.baseUrl}/chat/completions`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...h },
-          body: JSON.stringify({ model: c.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: maxTokens, temperature: 0.6, stream: true }),
+          body: JSON.stringify({ model: gate.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: maxTokens, temperature: 0.6, stream: true, stream_options: { include_usage: true } }),
           signal: ctl.signal,
         });
         if (!r.ok || !r.body) throw new Error(`http ${r.status}`);
@@ -119,6 +145,7 @@ export async function llmChatStream(
         const dec = new TextDecoder();
         let buf = "";
         let text = "";
+        let usage: any = null;
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -132,6 +159,7 @@ export async function llmChatStream(
             if (payload === "[DONE]") continue;
             try {
               const j = JSON.parse(payload);
+              if (j?.usage) usage = j.usage;
               const piece = j?.choices?.[0]?.delta?.content ?? j?.choices?.[0]?.message?.content ?? "";
               if (piece) {
                 text += piece;
@@ -145,7 +173,16 @@ export async function llmChatStream(
         try {
           await reader.cancel();
         } catch { /* chiusura best-effort */ }
-        if (text.trim()) return { text, via: "api", streamed: true };
+        if (text.trim()) {
+          recordUsage({
+            model: gate.model, via: "api",
+            promptTokens: Number(usage?.prompt_tokens ?? estimateTokens(system + user)),
+            completionTokens: Number(usage?.completion_tokens ?? estimateTokens(text)),
+            estimated: !usage,
+            ms: Date.now() - t0,
+          });
+          return { text, via: "api", streamed: true };
+        }
       } finally {
         clearTimeout(t);
       }
