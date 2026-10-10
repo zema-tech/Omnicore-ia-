@@ -56,7 +56,7 @@ export async function search(query: string, limit = 5): Promise<{ hits: MemoryHi
 
   // 4) memoria strutturata SQLite (BM25, sempre disponibile come la nativa)
   try {
-    for (const h of memRecall(query, { limit })) {
+    for (const h of await memRecall(query, { limit })) {
       if (h.content) hits.push({ source: "store", text: h.content.slice(0, 280), ts: h.updated });
     }
     vias.push("store");

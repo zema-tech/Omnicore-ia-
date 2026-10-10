@@ -40,6 +40,7 @@ const PLAN_SYSTEM = `Sei il pianificatore di Omnicore. Rispondi con SOLO JSON, n
 Formato: [{"name": "<tool>", "args": {...}}], max 3 tool, in ordine di esecuzione.
 Tool ammessi: memory.search {query, limit}, memory.read {session_key, limit},
 memory.store {content, session, tags}, memory.recall {query, limit}, memory.forget {id},
+memory.embed {text, model},
 memory.note_save {title, body}, memory.note_search {query, limit},
 code.task {goal} (Claude Code multi-step: preferisci per task di codice),
 code.run {prompt}, code.read {path}, code.write {path, content}, code.shell {cmd},

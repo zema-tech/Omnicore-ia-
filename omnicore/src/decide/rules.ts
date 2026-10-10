@@ -75,6 +75,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "memory.store" ||
       name === "memory.recall" ||
       name === "memory.forget" ||
+      name === "memory.embed" ||
       name === "channel.status" ||
       name === "telegram.me" ||
       name === "telegram.poll" ||

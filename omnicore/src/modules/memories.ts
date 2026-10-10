@@ -68,16 +68,21 @@ function close(): void {
   dbPath = "";
 }
 
-/** Salva un ricordo. Ritorna {id}. Throw se contenuto vuoto. */
-export function memStore(content: string, opts: { session?: string; tags?: string[]; embedding?: number[] } = {}): { id: number } {
+/** Salva un ricordo. Auto-embedding se OMNICORE_EMBED_MODEL. Throw se vuoto. */
+export async function memStore(content: string, opts: { session?: string; tags?: string[]; embedding?: number[] } = {}): Promise<{ id: number }> {
   const text = String(content ?? "").trim();
   if (!text) throw new Error("ricordo vuoto");
   if (text.length > 4000) throw new Error("ricordo troppo lungo (max 4000)");
+  let emb = opts.embedding?.length ? opts.embedding.slice(0, 512) : undefined;
+  if (!emb && embedModel()) {
+    try {
+      emb = (await memEmbed(text)) ?? undefined;
+    } catch { /* vettore opzionale */ }
+  }
   const d = open();
   const now = Date.now();
-  const emb = opts.embedding?.length ? JSON.stringify(opts.embedding.slice(0, 512)) : null;
   const r = d.prepare("INSERT INTO memories(session, content, tags, embedding, created, updated) VALUES (?,?,?,?,?,?)")
-    .run(opts.session ?? "", text, (opts.tags ?? []).map(String).join(" ").slice(0, 300), emb, now, now);
+    .run(opts.session ?? "", text, (opts.tags ?? []).map(String).join(" ").slice(0, 300), emb ? JSON.stringify(emb) : null, now, now);
   return { id: Number(r.lastInsertRowid) };
 }
 
@@ -117,11 +122,17 @@ function ftsQuery(q: string): string {
 }
 
 /**
- * Ricerca: BM25 su FTS5 + rerank coseno se embedding fornito e presente.
- * Fallback ai più recenti se query vuota o nessun match. Mai throw.
+ * Ricerca: BM25 su FTS5 + rerank coseno (embedding passato o auto-generato
+ * se OMNICORE_EMBED_MODEL). Fallback ai più recenti. Mai throw.
  */
-export function memRecall(query: string, opts: { limit?: number; session?: string; embedding?: number[] } = {}): RecallHit[] {
+export async function memRecall(query: string, opts: { limit?: number; session?: string; embedding?: number[] } = {}): Promise<RecallHit[]> {
   const limit = Math.max(1, Math.min(opts.limit ?? 5, 20));
+  let emb = opts.embedding?.length ? opts.embedding : undefined;
+  if (!emb && embedModel()) {
+    try {
+      emb = (await memEmbed(String(query ?? ""))) ?? undefined;
+    } catch { /* solo BM25 */ }
+  }
   try {
     const d = open();
     const fq = ftsQuery(String(query ?? ""));
@@ -149,11 +160,11 @@ export function memRecall(query: string, opts: { limit?: number; session?: strin
       created: r.created, updated: r.updated,
       score: typeof r.rank === "number" ? -r.rank : 0,
     }));
-    if (opts.embedding?.length) {
+    if (emb?.length) {
       for (const h of hits) {
         try {
-          const emb = JSON.parse((rows.find((r) => r.id === h.id)?.embedding ?? "null") as string);
-          if (Array.isArray(emb)) h.score += cosine(opts.embedding, emb) * 10;
+          const stored = JSON.parse((rows.find((r) => r.id === h.id)?.embedding ?? "null") as string);
+          if (Array.isArray(stored)) h.score += cosine(emb, stored) * 10;
         } catch { /* senza embedding: solo BM25 */ }
       }
       hits.sort((a, b) => b.score - a.score);
@@ -164,4 +175,43 @@ export function memRecall(query: string, opts: { limit?: number; session?: strin
   }
 }
 
-export const memories = { file: memoriesFile, store: memStore, recall: memRecall, forget: memForget, count: memCount, close: memClose, cosine };
+export const memories = { file: memoriesFile, store: memStore, recall: memRecall, forget: memForget, count: memCount, close: memClose, cosine, embed: memEmbed };
+
+/** Modello embedding locale (Ollama). Vuoto = vettori disabilitati. */
+export function embedModel(): string {
+  return process.env["OMNICORE_EMBED_MODEL"] ?? "";
+}
+
+function ollamaHost(): string {
+  return (process.env["OLLAMA_HOST"] ?? "http://127.0.0.1:11434").replace(/\/$/, "");
+}
+
+/**
+ * Embedding via Ollama /api/embeddings (locale, gratis, no key).
+ * Ritorna null se Ollama assente o modello mancante. Mai throw.
+ */
+export async function memEmbed(text: string, model?: string): Promise<number[] | null> {
+  const m = model ?? embedModel();
+  if (!m || !String(text ?? "").trim()) return null;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), Number(process.env["OMNICORE_EMBED_TIMEOUT_MS"] ?? "30000"));
+    try {
+      const r = await fetch(`${ollamaHost()}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: m, prompt: String(text).slice(0, 2000) }),
+        signal: ctl.signal,
+      });
+      if (!r.ok) return null;
+      const j = (await r.json().catch(() => null)) as any;
+      const v = j?.embedding;
+      if (!Array.isArray(v) || !v.every((n) => typeof n === "number")) return null;
+      return v.slice(0, 1024);
+    } finally {
+      clearTimeout(t);
+    }
+  } catch {
+    return null;
+  }
+}

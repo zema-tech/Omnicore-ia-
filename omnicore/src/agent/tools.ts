@@ -32,6 +32,7 @@ export type ToolName =
   | "memory.store"
   | "memory.recall"
   | "memory.forget"
+  | "memory.embed"
   | "memory.note_save"
   | "memory.note_search"
   | "code.run"
@@ -142,7 +143,7 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       }
       case "memory.store": {
         try {
-          const r = memories.store(String(args.content ?? args.text ?? ""), {
+          const r = await memories.store(String(args.content ?? args.text ?? ""), {
             session: typeof args.session === "string" ? args.session : undefined,
             tags: Array.isArray(args.tags) ? args.tags.map(String) : undefined,
           });
@@ -152,7 +153,7 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         }
       }
       case "memory.recall": {
-        const hits = memories.recall(String(args.query ?? ctx.text ?? ""), {
+        const hits = await memories.recall(String(args.query ?? ctx.text ?? ""), {
           limit: Number(args.limit ?? 5),
           session: typeof args.session === "string" ? args.session : undefined,
         });
@@ -163,6 +164,15 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return done
           ? { name: call.name, ok: true, via: "memory(store)", data: { forgotten: args.id } }
           : { name: call.name, ok: false, via: "memory(store)", error: `ricordo non trovato: ${args.id}` };
+      }
+      case "memory.embed": {
+        const v = await memories.embed(
+          String(args.text ?? args.content ?? ""),
+          typeof args.model === "string" ? args.model : undefined,
+        );
+        return v
+          ? { name: call.name, ok: true, via: "memory(embed)", data: { dims: v.length, embedding: v } }
+          : { name: call.name, ok: false, via: "memory(embed)", error: "embedding non disponibile (Ollama o OMNICORE_EMBED_MODEL?)" };
       }
       case "code.run": {
         const prompt = String(args.prompt ?? ctx.text ?? "");
@@ -654,6 +664,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "memory.store", description: "Salva ricordo strutturato {content, session?, tags?}" },
   { name: "memory.recall", description: "Richiama ricordi BM25 {query, limit?, session?}" },
   { name: "memory.forget", description: "Dimentica ricordo {id}" },
+  { name: "memory.embed", description: "Vettore embedding locale {text, model?}" },
   { name: "memory.read", description: "Leggi una sessione/memoria per chiave" },
   { name: "memory.note_save", description: "Salva una nota nel vault (titolo + testo)" },
   { name: "memory.note_search", description: "Cerca nelle note del vault" },
