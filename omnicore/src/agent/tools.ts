@@ -25,6 +25,7 @@ import { meeting } from "../modules/meeting.ts";
 import { whatsapp } from "../modules/whatsapp.ts";
 import { email } from "../modules/email.ts";
 import { signal } from "../modules/signal.ts";
+import { stt } from "../modules/stt.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -75,6 +76,7 @@ export type ToolName =
   | "email.read"
   | "signal.send"
   | "signal.poll"
+  | "meeting.attach"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -465,6 +467,31 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       }
       case "meeting.list": {
         return { name: call.name, ok: true, via: "meeting(native)", data: meeting.list() };
+      }
+      case "meeting.attach": {
+        // Audio -> trascrizione -> segmenti live (whisper locale o OpenAI).
+        const id = String(args.id ?? "");
+        const file = String(args.file ?? "");
+        if (!id || !file) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: "meeting.attach vuole {id, file}" };
+        }
+        const t = await stt.transcribe(file, {
+          provider: typeof args.provider === "string" ? args.provider : undefined,
+        });
+        if (!t.ok) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: t.error ?? "trascrizione fallita" };
+        }
+        try {
+          const who = String(args.who ?? "audio");
+          let n = 0;
+          for (const para of String(t.text ?? "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean).slice(0, 20)) {
+            meeting.append(id, who, para);
+            n++;
+          }
+          return { name: call.name, ok: true, via: "meeting(native)", data: { segments: n, text: t.text } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: String(e).slice(0, 200) };
+        }
       }
       case "whatsapp.send": {
         const to = String(args.to ?? args.target ?? "");
@@ -870,6 +897,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "meeting.status", description: "Anteprima note live {id}" },
   { name: "meeting.end", description: "Chiudi e archivia nel vault {id}" },
   { name: "meeting.list", description: "Riunioni aperte" },
+  { name: "meeting.attach", description: "Trascrivi audio in riunione {id, file, who?}" },
   { name: "whatsapp.send", description: "Invia WhatsApp {to, text} (conferma)" },
   { name: "email.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },
