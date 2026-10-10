@@ -1,5 +1,25 @@
 # Changelog
 
+## Tappa 25 — Budget LLM
+Tracking `usage` (reale o stimato) in `llm_usage.jsonl`, `budget.status`,
+alert 80%, fallback a `OMNICORE_LLM_CHEAP_MODEL` oltre soglia, stop→euristica.
+
+## Tappa 24 — Curator skill
+`skills.audit` (overlap Jaccard, esili, stantie), `skills.prune`,
+`skills.compose` (workflow da skill esistenti). Potature con conferma.
+
+## Tappa 23 — Discord + Slack reali
+Invio REST (chunk, auth), gateway Discord WS (hello→identify→dispatch),
+parser Events Slack, cablati in `channel.announce` + tool dedicati.
+
+## Tappa 22 — Chat interattiva
+`npm run chat`: readline con token live, slash (/doctor, /tools, /rounds…),
+sessioni salvate in `sessions.json`. Zero dipendenze.
+
+## Tappa 21 — Fanout multi-agente
+`agents.fanout`: task paralleli con routing code/research/agente, sessioni
+figlie con parent, coordinatore che aggrega. Conferma come i distruttivi.
+
 ## Tappa 20 — Web search nativo
 `web.search {query, maxResults, provider}`: DuckDuckGo gratis + Exa con key,
 fallback automatico. Solo lettura.

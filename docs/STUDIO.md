@@ -59,9 +59,9 @@ I vendor restano **solo riferimento**: qui sotto cosa abbiamo imparato e cosa
 
 1. ✅ ReAct, BYOK, browser, skill-create, Telegram send/poll, agents.run
 2. ✅ MCP client, memoria SQLite FTS5, code intelligence, streaming SSE, web.search
-3. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
-4. Subagent con sessione figlia vera + permessi ridotti
-5. Compaction/prune contesto + fork sessioni
-6. Deny-glob comandi + yolo per-sessione
-7. FTS per vault, embedding via provider opzionale
-8. WhatsApp/Discord reali, throttler, media
+3. ✅ Fanout multi-agente, chat interattiva, Discord+Slack, curator skill, budget LLM
+4. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
+5. Subagent con sessione figlia vera + permessi ridotti
+6. Compaction/prune contesto + fork sessioni
+7. Deny-glob comandi + yolo per-sessione
+8. WhatsApp reale, throttler, media, marketplace skill
