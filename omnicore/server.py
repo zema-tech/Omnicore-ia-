@@ -108,6 +108,52 @@ def _agent_turn(text: str, directory: str = "") -> dict:
     return res
 
 
+def _node_json(flag: str, timeout: int = 60) -> dict:
+    """Esegue node con flag diagnostica (--doctor) e ritorna il JSON o errore."""
+    try:
+        p = subprocess.run([NODE, "--experimental-strip-types", str(TS_ENTRY), flag],
+                           capture_output=True, text=True, timeout=timeout, cwd=str(HERE))
+        return json.loads((p.stdout or "").strip() or "{}")
+    except Exception as e:
+        return {"error": str(e)[:200]}
+
+
+def _doctor() -> dict:
+    return _node_json("--doctor")
+
+
+def _status() -> dict:
+    """Stato per il pannello impostazioni: cervello + budget oggi, mai segreti."""
+    used = 0
+    calls = 0
+    try:
+        today = time.strftime("%Y-%m-%d")
+        with open(DATA / "llm_usage.jsonl", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                if time.strftime("%Y-%m-%d", time.localtime(e.get("ts", 0) / 1000)) != today:
+                    continue
+                if e.get("via") == "local":
+                    continue
+                used += int(e.get("promptTokens", 0)) + int(e.get("completionTokens", 0))
+                calls += 1
+    except OSError:
+        pass
+    try:
+        budget = int(os.environ.get("OMNICORE_BUDGET_TOKENS_DAY", "0") or 0)
+    except ValueError:
+        budget = 0
+    return {
+        "service": "omnicore",
+        "brain": _doctor().get("active", "?"),
+        "budget": {"used": used, "calls": calls, "limit": budget,
+                   "pct": (used / budget) if budget > 0 else None},
+    }
+
+
 def _trace_summary(res: dict) -> str:
     parts = []
     for t in res.get("trace", []):
@@ -174,6 +220,13 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/health":
             self._json({"ok": True, "service": "omnicore"})
             return
+        if parsed.path == "/api/status":
+            # Pannello impostazioni: cervello, budget oggi, niente segreti.
+            self._json(_status())
+            return
+        if parsed.path == "/api/doctor":
+            self._json(_doctor())
+            return
         if parsed.path == "/api/sessions":
             with _lock:
                 db = _load()
@@ -235,11 +288,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/chat/stream":
             # SSE live: righe NDJSON di `node --stream` girate come eventi.
+            # A fine turno logga la sessione (dall'evento result) come /api/chat.
             text = str(body.get("text", ""))
+            session_id = body.get("session_id")
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "keep-alive")
+            # Niente Content-Length né keep-alive: HTTP/1.0 chiude a fine turno (EOF = fine stream).
             self.end_headers()
             try:
                 p = subprocess.Popen(
@@ -251,11 +306,18 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(f"data: {json.dumps({'event': 'error', 'error': 'node non trovato'})}\n\n".encode())
                 return
             assert p.stdout is not None
+            final: dict = {}
             try:
                 for line in p.stdout:
                     line = line.strip()
                     if not line:
                         continue
+                    try:
+                        ev = json.loads(line)
+                        if isinstance(ev, dict) and ev.get("event") == "result":
+                            final = ev
+                    except ValueError:
+                        pass
                     self.wfile.write(f"data: {line}\n\n".encode())
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
@@ -265,6 +327,17 @@ class Handler(BaseHTTPRequestHandler):
                     p.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     p.kill()
+            if final:
+                sid = _log(session_id or None,
+                           {"text": text, "intent": str(final.get("intent", "chat")),
+                            "handler": "agent", "ok": True,
+                            "answer": str(final.get("reply", ""))[:2000],
+                            "summary": f"giri {final.get('rounds', 1)} ({final.get('planner', '?')})"})
+                try:
+                    self.wfile.write(f": session {sid}\n\n".encode())
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
             return
         self._json({"error": "not found"}, 404)
 

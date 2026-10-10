@@ -24,23 +24,31 @@
   .badge.ko { color:var(--ko); border-color:var(--ko); }
   .steps { font-size:12px; color:var(--dim); margin-top:4px; white-space:pre-wrap; font-family:ui-monospace,monospace; }
   .timeline { background:#0a0e14; border:1px solid var(--line); border-radius:8px; padding:10px; font:12px/1.45 ui-monospace,monospace; color:var(--code); white-space:pre-wrap; min-height:120px; }
+  .live { border-color:var(--acc); }
   form.row { display:flex; gap:8px; margin-top:8px; }
-  input[type=text], textarea { flex:1; background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:8px; font:inherit; }
+  input[type=text], input[type=password] { flex:1; background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:8px; font:inherit; }
   button.send { background:var(--acc); color:#04121f; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font-weight:600; }
+  button.ghost { background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:6px; padding:8px 10px; cursor:pointer; }
+  #settings { display:none; border:1px solid var(--line); border-radius:8px; padding:10px; margin-top:8px; font-size:12px; }
+  #settings.open { display:block; }
+  .bar { height:8px; background:var(--panel); border:1px solid var(--line); border-radius:99px; overflow:hidden; margin-top:4px; }
+  .bar > div { height:100%; background:var(--acc); }
   @media (max-width:900px){ main{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
 <header>
   <h1>Omnicore</h1>
-  <span class="sub">chat · code.task (Claude Code) · sessioni</span>
+  <span class="sub">chat live · loop ReAct · sessioni</span>
   <input type="password" id="token" placeholder="Bearer token" autocomplete="off" style="margin-left:auto;max-width:180px">
+  <button class="ghost" id="cfgbtn">⚙ stato</button>
 </header>
 <main>
   <section>
     <h2>Sessioni</h2>
     <div id="sessions"></div>
     <button class="send" id="new" style="width:100%">+ nuova</button>
+    <div id="settings"><div id="statusbox">…</div><button class="ghost" id="refresh" style="margin-top:8px">aggiorna</button></div>
   </section>
   <section>
     <h2>Chat</h2>
@@ -51,10 +59,8 @@
     </form>
   </section>
   <section>
-    <h2>Code agent · timeline</h2>
-    <p style="color:var(--dim);font-size:12px;margin:0 0 8px">Come Claude Code: plan → step → file toccati. Usa <code>confermo:</code> per eseguire.</p>
-    <div class="timeline" id="codetimeline">Nessun code.task ancora.
-Prova: «confermo: crea note.md con hello»</div>
+    <h2>Loop ReAct · live</h2>
+    <div class="timeline" id="codetimeline">I tool del turno compaiono qui in diretta.</div>
     <form class="row" id="codeform">
       <input type="text" id="codegoal" placeholder="goal coding…">
       <button class="send">code.task</button>
@@ -66,32 +72,21 @@ const $ = id => document.getElementById(id);
 let sid = null;
 try { $('token').value = localStorage.getItem('omnicore_token') || ''; } catch {}
 $('token').onchange = () => { try { localStorage.setItem('omnicore_token', $('token').value); } catch {} };
+$('cfgbtn').onclick = () => { $('settings').classList.toggle('open'); loadStatus(); };
+function auth() {
+  const h = {'Content-Type': 'application/json'};
+  if ($('token').value) h['Authorization'] = 'Bearer ' + $('token').value;
+  return h;
+}
 async function api(path, body) {
-  const headers = {'Content-Type': 'application/json'};
-  if ($('token').value) headers['Authorization'] = 'Bearer ' + $('token').value;
-  const r = await fetch(path, body === undefined ? {headers} : {method:'POST', headers, body:JSON.stringify(body)});
+  const r = await fetch(path, body === undefined ? {headers: auth()} : {method:'POST', headers: auth(), body:JSON.stringify(body)});
   return r.json();
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function extractTimeline(res) {
-  // cerca steps/timeline nella risposta agent
-  const t = res?.trace || res?.tools || res?.result?.trace || [];
-  const arr = Array.isArray(t) ? t : [];
-  for (const step of arr) {
-    if (step?.name === 'code.task' && step?.data?.timeline) return step.data.timeline;
-    if (step?.data?.steps) {
-      return (step.data.summary || '') + '\n' + step.data.steps.map((s,i) =>
-        `${i+1}. ${s.ok===false?'✗':'✓'} ${s.kind}${s.path?' '+s.path:''}${s.cmd?' `'+s.cmd+'`':''}`
-      ).join('\n');
-    }
-  }
-  if (res?.reply && /code\(agent|code\.task|File:/.test(res.reply)) return res.reply;
-  return null;
-}
-function msgHtml(m) {
+function msgHtml(m, answer) {
   const cls = m.ok === true ? 'ok' : (m.ok === false ? 'ko' : '');
-  const ans = m.answer ? `<div style="margin-top:6px;white-space:pre-wrap;border-left:2px solid var(--acc);padding-left:8px">${escapeHtml(m.answer)}</div>` : '';
-  return `<div class="msg"><span class="t"></span><span class="badge">${m.intent||''}</span> <span class="badge ${cls}">${m.ok===undefined?'':(m.ok?'ok':'ko')}</span><div></div>${ans}<div class="steps">${escapeHtml(m.summary||'')}</div></div>`;
+  const ans = answer ? `<div style="margin-top:6px;white-space:pre-wrap;border-left:2px solid var(--acc);padding-left:8px">${escapeHtml(answer)}</div>` : '';
+  return `<div class="msg"><span class="badge">${m.intent||'chat'}</span> <span class="badge ${cls}">${m.ok===undefined?'':(m.ok?'ok':'ko')}</span>${ans}<div class="steps">${escapeHtml(m.summary||'')}</div></div>`;
 }
 async function loadSessions() {
   const list = await api('/api/sessions');
@@ -102,14 +97,68 @@ async function loadSessions() {
 async function loadChat() {
   if (!sid) { $('chat').innerHTML = '<small style="color:var(--dim)">scegli o crea una sessione</small>'; return; }
   const s = await api('/api/session?id=' + encodeURIComponent(sid));
-  $('chat').innerHTML = (s.messages||[]).map(m => msgHtml(m).replace('<span class="t"></span>', `<span class="t"></span>${escapeHtml(m.text)}`)).join('');
+  $('chat').innerHTML = (s.messages||[]).map(m => msgHtml(m, m.answer)).join('');
+  $('chat').scrollTop = $('chat').scrollHeight;
+}
+async function loadStatus() {
+  try {
+    const [doc, st] = await Promise.all([api('/api/doctor'), api('/api/status')]);
+    const b = st.budget || {};
+    const pct = b.pct == null ? 'illimitato' : Math.round(b.pct*100) + '%';
+    $('statusbox').innerHTML =
+      `cervello: <b>${escapeHtml(doc.active || st.brain || '?')}</b><br>` +
+      `token oggi: <b>${b.used||0}</b>${b.limit?` / ${b.limit}`:''} (${pct}) · chiamate: ${b.calls||0}` +
+      `<div class="bar"><div style="width:${b.pct==null?0:Math.min(100,Math.round(b.pct*100))}%"></div></div>` +
+      `<small style="color:var(--dim)">key e segreti restano env sul server, mai qui.</small>`;
+  } catch { $('statusbox').textContent = 'stato non raggiungibile'; }
+}
+$('refresh').onclick = loadStatus;
+function toolLine(e) {
+  if (e.event === 'tool_start') return `… ${e.name} …\n`;
+  if (e.event === 'tool_end') return `… ${e.name} ${e.ok ? 'ok' : 'KO'}\n`;
+  if (e.event === 'loop_end') return `[giri ${e.rounds}, ${e.planner}]\n`;
+  return '';
+}
+async function sendStream(text) {
+  const r = await fetch('/api/chat/stream', {method:'POST', headers: auth(), body:JSON.stringify({text, session_id: sid})});
+  if (!r.ok || !r.body) { await sendAgent(text); return; }
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', answer = '', tools = '';
+  const live = document.createElement('div');
+  live.className = 'msg live';
+  live.innerHTML = '<span class="badge">live</span><div class="ans" style="white-space:pre-wrap"></div>';
+  $('chat').appendChild(live);
+  const ansEl = live.querySelector('.ans');
+  $('codetimeline').textContent = '';
+  for (;;) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, {stream:true});
+    const parts = buf.split('\n\n');
+    buf = parts.pop();
+    for (const p of parts) {
+      const line = p.trim();
+      if (line.startsWith(':')) {
+        const m = line.match(/^:\s*session\s+(\S+)/);
+        if (m) sid = m[1];
+        continue;
+      }
+      if (!line.startsWith('data:')) continue;
+      let e;
+      try { e = JSON.parse(line.slice(5).trim()); } catch { continue; }
+      if (e.event === 'token') { answer += e.text || ''; ansEl.textContent = answer; }
+      else if (e.event === 'result') { answer = e.reply || answer; ansEl.textContent = answer; }
+      else { const t = toolLine(e); if (t) { tools += t; $('codetimeline').textContent = tools; } }
+    }
+    $('chat').scrollTop = $('chat').scrollHeight;
+  }
+  live.classList.remove('live');
+  await loadSessions(); await loadChat();
 }
 async function sendAgent(text) {
   const res = await api('/api/chat', {text, session_id: sid});
   sid = res.session_id || sid;
-  const tl = extractTimeline(res);
-  if (tl) $('codetimeline').textContent = tl;
-  else if (res.reply) $('codetimeline').textContent = res.reply;
   await loadSessions(); await loadChat();
   return res;
 }
@@ -117,15 +166,15 @@ $('chatform').onsubmit = async e => {
   e.preventDefault();
   const text = $('text').value.trim(); if (!text) return;
   $('text').value = '';
-  await sendAgent(text);
+  await sendStream(text);
 };
 $('codeform').onsubmit = async e => {
   e.preventDefault();
   const goal = $('codegoal').value.trim(); if (!goal) return;
   $('codegoal').value = '';
-  $('codetimeline').textContent = '… code.task in corso';
   const text = /^conferm/i.test(goal) ? goal : ('confermo: ' + goal);
-  await sendAgent(text);
+  $('codetimeline').textContent = '… code.task in corso';
+  await sendStream(text);
 };
 $('new').onclick = () => { sid = null; $('chat').innerHTML = '<small style="color:var(--dim)">primo messaggio crea la sessione</small>'; loadSessions(); };
 loadSessions();
