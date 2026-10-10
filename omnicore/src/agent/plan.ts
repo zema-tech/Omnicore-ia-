@@ -50,6 +50,7 @@ cron.add {name, schedule, payload}, cron.list {}, cron.remove {name},
 agents.register {name, skills}, agents.list {}, agents.pause {name},
 permissions.request {action, target}, permissions.respond {id, allow},
 skills.list {}, skills.get {name}, skills.search {query},
+skills.create {name, description, instructions} (conferma),
 world.exec {cmd}, decide.rank {candidati}, decide.verify {azione}, respond vietato.
 Per codice multi-file o "crea/scrivi/fix": usa code.task. Per saluti basta memory.search.`;
 

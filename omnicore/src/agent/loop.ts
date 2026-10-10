@@ -48,7 +48,7 @@ function previewOf(call: ToolCall): string {
     for (const k of keys) if (a[k] !== undefined && a[k] !== "") return String(a[k]);
     return "";
   };
-  const p = pick("prompt", "message", "cmd", "path", "query", "text") || JSON.stringify(a);
+  const p = pick("prompt", "message", "cmd", "path", "query", "text", "name") || JSON.stringify(a);
   return `${call.name}: ${p}`.slice(0, 300);
 }
 

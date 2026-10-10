@@ -50,6 +50,7 @@ export type ToolName =
   | "skills.list"
   | "skills.get"
   | "skills.search"
+  | "skills.create"
   | "world.exec"
   | "decide.rank"
   | "decide.verify"
@@ -317,6 +318,18 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "skills.search": {
         return { name: call.name, ok: true, via: "skills", data: skills.search(String(args.query ?? "")).map((s) => ({ name: s.name, description: s.description })) };
       }
+      case "skills.create": {
+        // Scrive nel repo: serve conferma esplicita come code.write.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "skills", needsConfirm: true, preview: `skill ${args.name ?? ""}: ${String(args.description ?? "").slice(0, 200)}` };
+        }
+        try {
+          const created = skills.create(String(args.name ?? ""), String(args.description ?? ""), String(args.instructions ?? args.body ?? ""));
+          return { name: call.name, ok: true, via: "skills", data: created };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "skills", error: String(e).slice(0, 200) };
+        }
+      }
       case "world.exec": {
         if (args.confirm !== true) {
           return { name: call.name, ok: false, via: "world", needsConfirm: true, preview: String(args.cmd ?? "").slice(0, 300) };
@@ -408,6 +421,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "skills.list", description: "Elenca le skill caricabili" },
   { name: "skills.get", description: "Leggi una skill {name}" },
   { name: "skills.search", description: "Cerca skill {query}" },
+  { name: "skills.create", description: "Crea skill riusabile {name, description, instructions} (conferma)" },
   { name: "world.exec", description: "Comando nel mondo virtuale (Mirage)" },
   { name: "decide.rank", description: "Rank azioni candidate (CLM System One)" },
   { name: "decide.verify", description: "Verifica un'azione (CLM)" },

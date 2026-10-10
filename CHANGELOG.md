@@ -1,5 +1,10 @@
 # Changelog
 
+## Tappa 13 — Il principale crea skill
+`skills.create {name, description, instructions}`: il loop scrive nuove
+SKILL.md riusabili (conferma + decide come le scritture). Validazione
+nomi, niente sovrascritture silenziose.
+
 ## Tappa 12 — Loop ReAct multi-giro
 Con LLM il turno continua: osserva i risultati, ripianifica, si ferma su `[]`
 o a budget (`OMNICORE_MAX_ROUNDS`, default 4). Offline resta a giro singolo.
