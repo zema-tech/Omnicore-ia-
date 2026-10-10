@@ -1,9 +1,11 @@
 // Modulo CANALI — presenza nativa di Omnicore (modellato su OpenClaw:
 // channels/ + extensions telegram/whatsapp/discord/slack come backend).
 //
-// Channel = {id, kind, status(), send()}. Backend reali: console (log) e
-// webhook (POST JSON). telegram/whatsapp/discord: richiedono token e
-// restano needsConfig onesto finché non collegati. Zero dipendenze.
+// Channel = {id, kind, status(), send()}. Backend reali: console (log),
+// webhook (POST JSON) e telegram (Bot API: invio reale, lettura via poll).
+// whatsapp/discord restano needsConfig onesto finché non collegati.
+// Zero dipendenze.
+import { telegram } from "./telegram.ts";
 export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord";
 
 export interface ChannelDef {
@@ -40,6 +42,7 @@ export function channelStatus(): ChannelStatus[] {
   return listChannels().map((c) => {
     if (c.kind === "console") return { id: c.id, kind: c.kind, ok: true, detail: "log locale attivo" };
     if (c.kind === "webhook") return { id: c.id, kind: c.kind, ok: true, detail: `POST ${c.url}` };
+    if (c.kind === "telegram") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (verifica con telegram.me, leggi con telegram.poll)" };
     return { id: c.id, kind: c.kind, ok: false, detail: `${c.kind}: backend non collegato (serve token/adapter dedicato)` };
   });
 }
@@ -47,7 +50,11 @@ export function channelStatus(): ChannelStatus[] {
 /** Invio nativo. Ritorna {ok, via, detail}. Mai throw. */
 export async function channelSend(message: string, targets: string[] = []): Promise<{ ok: boolean; via: string; detail: string }> {
   const chans = listChannels();
-  const wanted = targets.length ? chans.filter((c) => targets.includes(c.id)) : chans.filter((c) => c.kind === "console");
+  // chat_id numerici attivano il backend telegram anche senza id "telegram"
+  const withTg = targets.some((t) => /^-?\d+$/.test(t)) && !targets.includes("telegram")
+    ? [...targets, "telegram"]
+    : targets;
+  const wanted = withTg.length ? chans.filter((c) => withTg.includes(c.id)) : chans.filter((c) => c.kind === "console");
   if (!wanted.length) {
     return { ok: false, via: "channel", detail: `nessun canale tra: ${targets.join(",")}` };
   }
@@ -78,6 +85,21 @@ export async function channelSend(message: string, targets: string[] = []): Prom
       } catch (e) {
         allOk = false;
         results.push(`${c.id}: fallito (${String(e).slice(0, 120)})`);
+      }
+      continue;
+    }
+    if (c.kind === "telegram") {
+      // target = chat_id numerici (spazio o virgola); senza target: errore onesto.
+      const ids = targets.filter((t) => t !== "telegram" && /^-?\d+$/.test(t));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve chat_id target (es. targets:["123456"])`);
+        continue;
+      }
+      for (const id of ids) {
+        const r = await telegram.send(Number(id), message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
       }
       continue;
     }

@@ -63,6 +63,8 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
     } else if (
       name === "memory.read" ||
       name === "channel.status" ||
+      name === "telegram.me" ||
+      name === "telegram.poll" ||
       name === "memory.note_save" ||
       name === "code.read" ||
       name === "cron.list" ||

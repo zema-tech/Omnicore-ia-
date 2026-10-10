@@ -9,6 +9,7 @@ import { search } from "../modules/search.ts";
 import { web } from "../modules/web.ts";
 import { todos } from "../modules/todo.ts";
 import { channels } from "../modules/channels.ts";
+import { telegram } from "../modules/telegram.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -38,6 +39,8 @@ export type ToolName =
   | "todo.clear"
   | "channel.status"
   | "channel.announce"
+  | "telegram.me"
+  | "telegram.poll"
   | "cron.add"
   | "cron.list"
   | "cron.remove"
@@ -255,6 +258,21 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: r.detail }
           : { name: call.name, ok: false, via: r.via, error: r.detail };
       }
+      case "telegram.me": {
+        const r = await telegram.me();
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "telegram non verificato" };
+      }
+      case "telegram.poll": {
+        const r = await telegram.poll({
+          offset: typeof args.offset === "number" ? args.offset : undefined,
+          timeoutSec: typeof args.timeout === "number" ? args.timeout : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "poll fallito" };
+      }
       case "cron.add": {
         try {
           const job = cron.add(String(args.name ?? ""), (args.schedule ?? {}) as never, (args.payload ?? {}) as Record<string, unknown>);
@@ -409,6 +427,8 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "todo.clear", description: "Pulisci i passi chiusi" },
   { name: "channel.status", description: "Stato canali nativi di presenza" },
   { name: "channel.announce", description: "Annuncio / invio su canali (conferma)" },
+  { name: "telegram.me", description: "Verifica il bot Telegram configurato" },
+  { name: "telegram.poll", description: "Leggi messaggi Telegram in arrivo {offset, timeout}" },
   { name: "cron.add", description: "Pianifica un job {name, schedule, payload}" },
   { name: "cron.list", description: "Elenca i job pianificati" },
   { name: "cron.remove", description: "Rimuovi un job {name}" },
