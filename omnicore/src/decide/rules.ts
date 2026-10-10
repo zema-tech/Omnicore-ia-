@@ -28,6 +28,7 @@ const DESTRUCTIVE = new Set([
   "code.edit",
   "channel.announce",
   "skills.create",
+  "agents.run",
   "world.exec",
 ]);
 

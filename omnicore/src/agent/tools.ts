@@ -47,6 +47,7 @@ export type ToolName =
   | "agents.register"
   | "agents.list"
   | "agents.pause"
+  | "agents.run"
   | "permissions.request"
   | "permissions.respond"
   | "permissions.list"
@@ -307,6 +308,35 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: "agents", data: { paused: args.name } }
           : { name: call.name, ok: false, via: "agents", error: `agente non trovato: ${args.name}` };
       }
+      case "agents.run": {
+        // Secondario: stesse mani del principale (code.task isolato), resa come
+        // riassunto taggato stile OpenCode <task_result>. Delega confermata una
+        // volta qui; dentro gira con conferma forzata (niente doppie richieste).
+        const name = String(args.name ?? "");
+        const task = String(args.task ?? args.goal ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "agents", needsConfirm: true, preview: `agents.run ${name}: ${task.slice(0, 250)}` };
+        }
+        if (!task.trim()) {
+          return { name: call.name, ok: false, via: "agents", error: "agents.run vuole {name, task}" };
+        }
+        const def = agents.list().find((a) => a.name === name);
+        if (!def) {
+          return { name: call.name, ok: false, via: "agents", error: `agente non registrato: ${name} (agents.register prima)` };
+        }
+        if (def.status !== "active") {
+          return { name: call.name, ok: false, via: "agents", error: `agente in pausa: ${name}` };
+        }
+        const skillsCtx = def.skills.length ? ` (skill: ${def.skills.join(", ")})` : "";
+        const r = await codeAgent.runTask(`${task}${skillsCtx}`, {
+          workspace: (args.workspace as string | undefined) ?? ctx.directory,
+          budgetSteps: Number(args.budgetSteps ?? 8),
+        });
+        const report = `<task_result agent="${def.name}" ok="${r.ok}">\n${codeAgent.formatTimeline(r)}\n</task_result>`;
+        return r.ok
+          ? { name: call.name, ok: true, via: `agents(${r.via})`, data: { agent: def.name, summary: r.summary, filesTouched: r.filesTouched, report } }
+          : { name: call.name, ok: false, via: `agents(${r.via})`, error: report.slice(0, 600) };
+      }
       case "permissions.request": {
         try {
           const req = permissions.request(String(args.action ?? ""), String(args.target ?? ""), String(args.reason ?? ""));
@@ -435,6 +465,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "agents.register", description: "Registra un agente {name, skills}" },
   { name: "agents.list", description: "Elenca gli agenti registrati" },
   { name: "agents.pause", description: "Mette in pausa un agente {name}" },
+  { name: "agents.run", description: "Secondario file-worker isolato {name, task} (conferma)" },
   { name: "permissions.request", description: "Chiede approvazione {action, target, reason}" },
   { name: "permissions.respond", description: "Approva/nega {id, allow}" },
   { name: "permissions.list", description: "Richieste di approvazione aperte" },

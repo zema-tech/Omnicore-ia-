@@ -1,5 +1,15 @@
 # Changelog
 
+## Tappa 15 — Secondario file-worker (agents.run)
+`agents.run {name, task}`: agente registrato + attivo esegue `code.task`
+isolato e riporta `<task_result>` (summary, file, timeline). Conferma una
+volta per la delega, decide come i distruttivi.
+
+## Tappa 14 — Telegram reale
+`modules/telegram.ts` via Bot API (da studio OpenClaw): invio chunk 4000,
+long-poll `getUpdates` con offset, `getMe`. Tool `telegram.me/poll`, invio
+via `channel.announce` a chat_id. Token solo env.
+
 ## Tappa 13 — Il principale crea skill
 `skills.create {name, description, instructions}`: il loop scrive nuove
 SKILL.md riusabili (conferma + decide come le scritture). Validazione
