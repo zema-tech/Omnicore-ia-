@@ -22,3 +22,5 @@ export type { SymbolDef, SymbolRef } from "./symbols.ts";
 
 export { lsp } from "./lsp.ts";
 export type { LspPosition, LspLocation, LspOpts } from "./lsp.ts";
+
+export { dap } from "./dap.ts";

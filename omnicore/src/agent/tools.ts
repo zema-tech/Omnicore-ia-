@@ -26,7 +26,7 @@ import { whatsapp } from "../modules/whatsapp.ts";
 import { email } from "../modules/email.ts";
 import { signal } from "../modules/signal.ts";
 import { stt } from "../modules/stt.ts";
-import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
+import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -77,6 +77,10 @@ export type ToolName =
   | "signal.send"
   | "signal.poll"
   | "meeting.attach"
+  | "debug.attach"
+  | "debug.break"
+  | "debug.go"
+  | "debug.vars"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -493,6 +497,48 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           return { name: call.name, ok: false, via: "meeting(native)", error: String(e).slice(0, 200) };
         }
       }
+      case "debug.attach": {
+        // Avvia un debug adapter esterno: esegue codice -> conferma.
+        const command = String(args.command ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "code(dap)", needsConfirm: true, preview: `debug.attach ${command}` };
+        }
+        if (!command) return { name: call.name, ok: false, via: "code(dap)", error: "debug.attach vuole {command, args?}" };
+        const r = await dap.attach({
+          command,
+          args: Array.isArray(args.args) ? args.args.map(String) : [],
+          root: ctx.directory,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(dap)", data: { session: r.session } }
+          : { name: call.name, ok: false, via: "code(dap)", error: r.error ?? "attach fallito" };
+      }
+      case "debug.break": {
+        const r = await dap.break(String(args.session ?? ""), String(args.file ?? ""), Number(args.line ?? 0));
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(dap)", data: r.breakpoints }
+          : { name: call.name, ok: false, via: "code(dap)", error: r.error ?? "breakpoint fallito" };
+      }
+      case "debug.go": {
+        // Muove l'esecuzione del debuggee: conferma come l'attach.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "code(dap)", needsConfirm: true, preview: `debug.go ${String(args.op ?? "continue")} (${args.session ?? ""})` };
+        }
+        const r = await dap.go(
+          String(args.session ?? ""),
+          String(args.op ?? "continue"),
+          typeof args.thread === "number" ? args.thread : 1,
+        );
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(dap)", data: r.data }
+          : { name: call.name, ok: false, via: "code(dap)", error: r.error ?? "go fallito" };
+      }
+      case "debug.vars": {
+        const r = await dap.vars(String(args.session ?? ""), Number(args.ref ?? 0));
+        return r.ok
+          ? { name: call.name, ok: true, via: "code(dap)", data: r.variables }
+          : { name: call.name, ok: false, via: "code(dap)", error: r.error ?? "vars fallite" };
+      }
       case "whatsapp.send": {
         const to = String(args.to ?? args.target ?? "");
         if (args.confirm !== true) {
@@ -898,6 +944,10 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "meeting.end", description: "Chiudi e archivia nel vault {id}" },
   { name: "meeting.list", description: "Riunioni aperte" },
   { name: "meeting.attach", description: "Trascrivi audio in riunione {id, file, who?}" },
+  { name: "debug.attach", description: "Avvia debug adapter {command, args?} (conferma)" },
+  { name: "debug.break", description: "Breakpoint {session, file, line}" },
+  { name: "debug.go", description: "Avanza esecuzione {session, op} (conferma)" },
+  { name: "debug.vars", description: "Variabili {session, ref}" },
   { name: "whatsapp.send", description: "Invia WhatsApp {to, text} (conferma)" },
   { name: "email.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },

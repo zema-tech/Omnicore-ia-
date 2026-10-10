@@ -43,6 +43,8 @@ const DESTRUCTIVE = new Set([
   "code.lsp",
   "cookbook.serve",
   "video.generate",
+  "debug.attach",
+  "debug.go",
   "world.exec",
 ]);
 
@@ -113,6 +115,8 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "meeting.end" ||
       name === "meeting.list" ||
       name === "meeting.attach" ||
+      name === "debug.break" ||
+      name === "debug.vars" ||
       name === "cookbook.scan" ||
       name === "cookbook.recommend" ||
       name.startsWith("todo.")
