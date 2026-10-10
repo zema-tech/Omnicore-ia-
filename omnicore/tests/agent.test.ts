@@ -14,7 +14,7 @@ describe("agent.planKeyword", () => {
   it("code: aggiunge le mani", () => {
     const p = planKeyword("fix login bug");
     assert.equal(p.intent, "code");
-    assert.ok(p.calls.some((c) => c.name === "code.run"));
+    assert.ok(p.calls.some((c) => c.name === "code.task" || c.name === "code.run"));
   });
 });
 

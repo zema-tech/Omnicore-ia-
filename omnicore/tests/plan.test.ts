@@ -75,6 +75,6 @@ describe("agent.resolvePlan", () => {
     process.env["OMNICORE_LLM_BASE_URL"] = "http://127.0.0.1:1";
     const r = await resolvePlan("fix login bug");
     assert.equal(r.planner, "keyword");
-    assert.ok(r.calls.some((c) => c.name === "code.run"));
+    assert.ok(r.calls.some((c) => c.name === "code.task" || c.name === "code.run"));
   });
 });

@@ -1,5 +1,10 @@
 # Changelog
 
+## Tappa 12 — Loop ReAct multi-giro
+Con LLM il turno continua: osserva i risultati, ripianifica, si ferma su `[]`
+o a budget (`OMNICORE_MAX_ROUNDS`, default 4). Offline resta a giro singolo.
+Conferme e decide valgono a ogni giro.
+
 ## Tappa 11 — Browser nativo (web.fetch)
 Legge pagine pubbliche (html→testo+link, json) con anti-SSRF, redirect
 rivalidati e timeout. Tool nel loop, nessuna conferma (sola lettura).

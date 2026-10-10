@@ -86,6 +86,53 @@ export async function planWithLlm(userText: string, chat = llmChatVia): Promise<
   }
 }
 
+const FOLLOWUP_SYSTEM = `Sei il pianificatore di Omnicore in un ciclo osserva→agisci.
+Ricevi l'obiettivo utente e le OSSERVAZIONI dagli step appena eseguiti.
+Rispondi con SOLO JSON, nessun altro testo.
+Formato: [{"name": "<tool>", "args": {...}}], max 3 tool, in ordine.
+Stessi tool del primo piano. Se l'obiettivo è raggiunto o non c'è più
+niente di utile da fare, rispondi esattamente [].
+Non ripetere tool già riusciti con lo stesso risultato.`;
+
+function parseFollowup(raw: string): ToolCall[] | null {
+  const clean = raw.replace(/```json|```/g, "").trim();
+  if (clean === "[]") return [];
+  const calls = parsePlan(raw);
+  if (calls === null) return null;
+  return calls;
+}
+
+/** Osservazioni compatte dagli ultimi risultati (ciò che il modello vede). */
+export function summarizeTrace(trace: { name: string; ok: boolean; via: string; data?: unknown; error?: string }[]): string {
+  if (!trace.length) return "(nessuno step eseguito)";
+  return trace
+    .slice(-6)
+    .map((t) => {
+      const s = t.ok ? JSON.stringify(t.data ?? "") : `ERRORE: ${t.error ?? "?"}`;
+      return `- ${t.name} (${t.ok ? "ok" : "ko"}, ${t.via}): ${s.slice(0, 300)}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Piano di continuazione: osserva i risultati, decide i prossimi tool o [].
+ * Ritorna null se nessun LLM (il loop resta a giro singolo). Mai throw.
+ */
+export async function planFollowup(
+  userText: string,
+  intent: string,
+  observations: string,
+  chat = llmChatVia,
+): Promise<ToolCall[] | null> {
+  try {
+    const r = await chat(FOLLOWUP_SYSTEM, `Obiettivo: ${userText}\nIntento: ${intent}\nOSSERVAZIONI:\n${observations}`, 300);
+    if (!r) return null;
+    return parseFollowup(r.text);
+  } catch {
+    return null;
+  }
+}
+
 export async function resolvePlan(userText: string): Promise<ResolvedPlan> {
   const { intent } = route({ text: userText });
   try {

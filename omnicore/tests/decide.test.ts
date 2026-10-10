@@ -97,9 +97,9 @@ describe("decide.cascade", () => {
 });
 
 describe("decide.loop-gating", () => {
-  it("code.run senza conferma viene bloccato dal decide nel loop", async () => {
+  it("code.task senza conferma viene bloccato dal decide nel loop", async () => {
     const r = await runAgent("fix login bug urgente");
-    const blocked = r.trace.find((t) => t.name === "code.run");
+    const blocked = r.trace.find((t) => t.name === "code.task");
     assert.ok(blocked);
     assert.equal(blocked.ok, false);
     assert.ok(blocked.via.startsWith("decide("));

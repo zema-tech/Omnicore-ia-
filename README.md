@@ -1,6 +1,7 @@
 # Omnicore-ia — un unico agente IA
 
-**Omnicore** è un agente IA con un solo loop (`piano → strumenti → risposta`),
+**Omnicore** è un agente IA con un loop ReAct (`osserva → agisci`, fino a
+`OMNICORE_MAX_ROUNDS` giri con la tua key, giro singolo offline),
 identità propria e organi nativi. Nasce studiando
 [Hermes](vendors/hermes), [OpenCode](vendors/opencode) e [OpenClaw](vendors/openclaw),
 ma **non li orchestra come prodotti esterni**: fonde le capacità in moduli propri.

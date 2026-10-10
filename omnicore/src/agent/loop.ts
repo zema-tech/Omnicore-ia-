@@ -2,7 +2,7 @@
 // Il piano vive in plan.ts; la sintesi in mind/synth.ts.
 import { SYSTEM_PROMPT, banner } from "./identity.ts";
 import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
-import { resolvePlan } from "./plan.ts";
+import { resolvePlan, planFollowup, summarizeTrace } from "./plan.ts";
 import { decideVerify } from "../decide/index.ts";
 import { DESTRUCTIVE_TOOLS, attemptKey } from "../decide/rules.ts";
 import { approvalRequest, approvalGet, approvalRespond } from "../modules/permissions.ts";
@@ -25,6 +25,8 @@ export interface AgentResult {
   trace: ToolResult[];
   reply: string;
   system: string;
+  /** Giri osserva→agisci eseguiti (1 = giro singolo, niente LLM o già fatto). */
+  rounds: number;
 }
 
 /** Frasi con cui l'utente conferma esplicitamente ("confermo: ...", "sì, procedi"). */
@@ -66,12 +68,12 @@ async function handleApprovalAnswer(
   if (!found) {
     const reply = `Non trovo approvazioni con id ${id}: forse è di un'altra sessione o è già stata archiviata. Descrivimi pure l'azione da capo.`;
     trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
   }
   if (found.status !== "open") {
     const reply = `L'approvazione ${id} è già stata decisa (${found.status}): nessuna doppia esecuzione.`;
     trace.push({ name: "permissions.respond", ok: false, via: "permissions", error: reply });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
   }
   approvalRespond(id, allow);
   if (!allow || !found.call) {
@@ -79,7 +81,7 @@ async function handleApprovalAnswer(
       ? `Approvazione ${id} registrata, ma senza azione eseguibile collegata: niente da fare.`
       : `Azione ${id} negata e archiviata: non è stato eseguito nulla.`;
     trace.push({ name: "permissions.respond", ok: true, via: "permissions", data: { id, allow } });
-    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+    return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
   }
   // Via umana confermata: esegue l'azione registrata (conferma forzata, decide già passato).
   const exec = await runTool(
@@ -90,7 +92,7 @@ async function handleApprovalAnswer(
   const reply = exec.ok
     ? `Approvato ed eseguito ${id} (${found.call.name}): ${shortResult(exec)}.`
     : `Approvato ${id}, ma l'esecuzione è fallita: ${String(exec.error ?? "?").slice(0, 300)}`;
-  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…" };
+  return { agent: banner(), text: userText, intent: "ops", planner: "keyword", plan: [], trace, reply, system: SYSTEM_PROMPT.slice(0, 200) + "…", rounds: 1 };
 }
 
 function shortResult(t: ToolResult): string {
@@ -102,7 +104,7 @@ function shortResult(t: ToolResult): string {
 function toSteps(trace: ToolResult[]): FuseStep[] {
   const pick = (n: string) => trace.find((t) => t.name === n);
   const mem = pick("memory.search") ?? pick("memory.read");
-  const cod = pick("code.run");
+  const cod = pick("code.run") ?? pick("code.task");
   const ch = pick("channel.announce") ?? pick("channel.status");
   // Extra (web.fetch, code.grep...): il meglio va nel contesto memoria,
   // così la sintesi li vede senza cambiare forma degli step.
@@ -121,7 +123,7 @@ function toSteps(trace: ToolResult[]): FuseStep[] {
   return steps;
 }
 
-/** Un turno agente completo: piano (LLM o keyword) → facoltà → sintesi. */
+/** Un turno agente completo: giri osserva→agisci (ReAct) → sintesi. */
 export async function runAgent(
   userText: string,
   opts: { directory?: string } = {},
@@ -132,44 +134,65 @@ export async function runAgent(
 
   const { intent, calls: planned, planner } = await resolvePlan(userText);
   const gates = moduleGates();
-  // Profilo: world.exec esiste solo in medium/alt.
-  const calls = applyUserConfirm(
-    planned.filter((c) => c.name !== "world.exec" || gates.world),
-    userText,
-  );
   const trace: ToolResult[] = [];
   const failedKeys: string[] = [];
+  const allCalls: ToolCall[] = [];
+  let rounds = 0;
 
-  for (const call of calls) {
-    // Decide: le azioni distruttive passano sempre da verify (la conferma
-    // utente abilita, ma loop/offline restano bloccati).
-    if ((DESTRUCTIVE_TOOLS as string[]).includes(call.name)) {
-      const v = await decideVerify(call, {
-        state: userText,
-        recentAttempts: failedKeys,
-        allowClm: gates.clm,
-        confirm: call.args?.confirm === true,
-      });
-      if (v.verdict.verdict !== "allow") {
-        // Review = serve l'umano: registra l'azione in approvazione con id.
-        // Deny = errore reale, niente approval (non potrebbe mai riuscire).
-        if (v.verdict.verdict === "review") {
-          const req = approvalRequest(
-            call.name,
-            previewOf(call),
-            v.verdict.reason,
-            { name: call.name, args: (call.args ?? {}) as Record<string, unknown> },
-          );
-          trace.push({ name: call.name, ok: false, via: `decide(${v.level})+permissions`, error: `in attesa di approvazione ${req.id}: ${v.verdict.reason}` });
-        } else {
-          trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
+  // Un giro: filtri profilo/conferma → decide sulle distruttive → esecuzione.
+  const runCalls = async (incoming: ToolCall[]): Promise<void> => {
+    // Profilo: world.exec esiste solo in medium/alt.
+    const calls = applyUserConfirm(
+      incoming.filter((c) => c.name !== "world.exec" || gates.world),
+      userText,
+    );
+    allCalls.push(...calls);
+    for (const call of calls) {
+      // Decide: le azioni distruttive passano sempre da verify (la conferma
+      // utente abilita, ma loop/offline restano bloccati).
+      if ((DESTRUCTIVE_TOOLS as string[]).includes(call.name)) {
+        const v = await decideVerify(call, {
+          state: userText,
+          recentAttempts: failedKeys,
+          allowClm: gates.clm,
+          confirm: call.args?.confirm === true,
+        });
+        if (v.verdict.verdict !== "allow") {
+          // Review = serve l'umano: registra l'azione in approvazione con id.
+          // Deny = errore reale, niente approval (non potrebbe mai riuscire).
+          if (v.verdict.verdict === "review") {
+            const req = approvalRequest(
+              call.name,
+              previewOf(call),
+              v.verdict.reason,
+              { name: call.name, args: (call.args ?? {}) as Record<string, unknown> },
+            );
+            trace.push({ name: call.name, ok: false, via: `decide(${v.level})+permissions`, error: `in attesa di approvazione ${req.id}: ${v.verdict.reason}` });
+          } else {
+            trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
+          }
+          continue;
         }
-        continue;
       }
+      const result = await runTool(call, { text: userText, directory: opts.directory });
+      trace.push(result);
+      if (!result.ok) failedKeys.push(attemptKey(call));
     }
-    const result = await runTool(call, { text: userText, directory: opts.directory });
-    trace.push(result);
-    if (!result.ok) failedKeys.push(attemptKey(call));
+  };
+
+  await runCalls(planned);
+  rounds++;
+
+  // Continuazione ReAct: solo con LLM (l'euristica resta a giro singolo).
+  // Budget anti-loop: OMNICORE_MAX_ROUNDS giri totali (default 4, max 10).
+  const maxRounds = Math.max(1, Math.min(Number(process.env["OMNICORE_MAX_ROUNDS"] ?? "4"), 10));
+  let mark = 0;
+  while (planner === "llm" && rounds < maxRounds) {
+    const next = await planFollowup(userText, intent, summarizeTrace(trace.slice(mark)));
+    mark = trace.length;
+    if (!next || next.length === 0) break;
+    await runCalls(next);
+    rounds++;
   }
 
   const mind = await synthesize(userText, intent, toSteps(trace));
@@ -181,9 +204,10 @@ export async function runAgent(
     text: userText,
     intent,
     planner,
-    plan: calls,
+    plan: allCalls,
     trace,
     reply: mind.answer,
     system: SYSTEM_PROMPT.slice(0, 200) + "…",
+    rounds,
   };
 }
