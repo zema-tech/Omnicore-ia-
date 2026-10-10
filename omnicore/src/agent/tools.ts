@@ -22,6 +22,8 @@ import { video } from "../modules/video.ts";
 import { github } from "../modules/github.ts";
 import { decision } from "../modules/decision.ts";
 import { meeting } from "../modules/meeting.ts";
+import { whatsapp } from "../modules/whatsapp.ts";
+import { email } from "../modules/email.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -67,6 +69,9 @@ export type ToolName =
   | "meeting.status"
   | "meeting.end"
   | "meeting.list"
+  | "whatsapp.send"
+  | "email.send"
+  | "email.read"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -458,6 +463,36 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "meeting.list": {
         return { name: call.name, ok: true, via: "meeting(native)", data: meeting.list() };
       }
+      case "whatsapp.send": {
+        const to = String(args.to ?? args.target ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "whatsapp", needsConfirm: true, preview: `whatsapp.send ${to}: ${String(args.text ?? args.message ?? "").slice(0, 200)}` };
+        }
+        const r = await whatsapp.send(to, String(args.text ?? args.message ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "email.send": {
+        const to = String(args.to ?? args.target ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "email", needsConfirm: true, preview: `email.send ${to}: ${String(args.subject ?? "").slice(0, 120)}` };
+        }
+        const r = await email.send(to, String(args.subject ?? "Omnicore"), String(args.text ?? args.body ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "email.read": {
+        const r = await email.read({
+          limit: typeof args.limit === "number" ? args.limit : undefined,
+          unseen: typeof args.unseen === "boolean" ? args.unseen : undefined,
+          mailbox: typeof args.mailbox === "string" ? args.mailbox : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
+      }
       case "todo.add": {
         try {
           return { name: call.name, ok: true, via: "todo", data: todos.add(String(args.text ?? "")) };
@@ -814,6 +849,9 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "meeting.status", description: "Anteprima note live {id}" },
   { name: "meeting.end", description: "Chiudi e archivia nel vault {id}" },
   { name: "meeting.list", description: "Riunioni aperte" },
+  { name: "whatsapp.send", description: "Invia WhatsApp {to, text} (conferma)" },
+  { name: "email.send", description: "Invia email {to, subject, text} (conferma)" },
+  { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },

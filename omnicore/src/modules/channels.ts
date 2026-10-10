@@ -7,7 +7,9 @@
 import { telegram } from "./telegram.ts";
 import { discord } from "./discord.ts";
 import { slack } from "./slack.ts";
-export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack";
+import { whatsapp } from "./whatsapp.ts";
+import { email } from "./email.ts";
+export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack" | "email";
 
 export interface ChannelDef {
   id: string;
@@ -37,6 +39,7 @@ export function listChannels(): ChannelDef[] {
   if (env("WHATSAPP_TOKEN")) out.push({ id: "whatsapp", kind: "whatsapp" });
   if (env("DISCORD_BOT_TOKEN")) out.push({ id: "discord", kind: "discord" });
   if (env("SLACK_BOT_TOKEN")) out.push({ id: "slack", kind: "slack" });
+  if (env("SMTP_HOST") || env("IMAP_HOST")) out.push({ id: "email", kind: "email" });
   return out;
 }
 
@@ -47,6 +50,8 @@ export function channelStatus(): ChannelStatus[] {
     if (c.kind === "telegram") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (verifica con telegram.me, leggi con telegram.poll)" };
     if (c.kind === "discord") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (invio discord.send, lettura discord.listen)" };
     if (c.kind === "slack") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (invio slack.send)" };
+    if (c.kind === "whatsapp") return { id: c.id, kind: c.kind, ok: true, detail: "business api configurata (invio whatsapp.send)" };
+    if (c.kind === "email") return { id: c.id, kind: c.kind, ok: true, detail: "smtp/imap configurati (invio email.send, lettura email.read)" };
     return { id: c.id, kind: c.kind, ok: false, detail: `${c.kind}: backend non collegato (serve token/adapter dedicato)` };
   });
 }
@@ -132,6 +137,37 @@ export async function channelSend(message: string, targets: string[] = []): Prom
       }
       for (const id of ids) {
         const r = await slack.send(id, message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
+      }
+      continue;
+    }
+    if (c.kind === "whatsapp") {
+      // target = numeri con + (così non scattano come chat_id telegram) + id esplicito.
+      const ids = targets.filter((t) => t !== "whatsapp" && /^\+?\d[\d\s-]{5,}$/.test(t) && /\+/.test(t));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve numero target con + (es. targets:["whatsapp","+39123"])`);
+        continue;
+      }
+      for (const id of ids) {
+        const r = await whatsapp.send(id, message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
+      }
+      continue;
+    }
+    if (c.kind === "email") {
+      // target = indirizzi email + id "email" esplicito.
+      const ids = targets.filter((t) => t !== "email" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve indirizzo target (es. targets:["email","a@b.it"])`);
+        continue;
+      }
+      const subject = `Omnicore — ${new Date().toISOString().slice(0, 10)}`;
+      for (const id of ids) {
+        const r = await email.send(id, subject, message);
         results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
         if (!r.ok) allOk = false;
       }
