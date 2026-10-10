@@ -1,5 +1,21 @@
 # Changelog
 
+## Tappa 29 — Cookbook modelli locali
+`cookbook.scan/recommend/serve`: hardware via node:os, fit score su catalogo
+curato, pull via API Ollama. Senza Ollama: errore onesto con hint.
+
+## Tappa 28 — Deep research
+`research.deep`: cerca → legge fonti → sintesi LLM o estrattiva → report
+Markdown citato in vault. Budget fonti/profondità.
+
+## Tappa 27 — Embedding locali
+`memory.embed` via Ollama, auto-embedding su store/recall con
+`OMNICORE_EMBED_MODEL`, rerank coseno. Senza Ollama: solo BM25.
+
+## Tappa 26 — Dashboard live
+Chat su `/api/chat/stream` (token live, tool in timeline), pannello stato
+(cervello + budget, mai segreti), endpoint `/api/status` + `/api/doctor`.
+
 ## Tappa 25 — Budget LLM
 Tracking `usage` (reale o stimato) in `llm_usage.jsonl`, `budget.status`,
 alert 80%, fallback a `OMNICORE_LLM_CHEAP_MODEL` oltre soglia, stop→euristica.

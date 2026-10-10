@@ -60,7 +60,8 @@ I vendor restano **solo riferimento**: qui sotto cosa abbiamo imparato e cosa
 1. ✅ ReAct, BYOK, browser, skill-create, Telegram send/poll, agents.run
 2. ✅ MCP client, memoria SQLite FTS5, code intelligence, streaming SSE, web.search
 3. ✅ Fanout multi-agente, chat interattiva, Discord+Slack, curator skill, budget LLM
-4. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
+4. ✅ Dashboard live, embedding locali, deep research, cookbook (stile Odysseus, nativo)
+5. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
 5. Subagent con sessione figlia vera + permessi ridotti
 6. Compaction/prune contesto + fork sessioni
 7. Deny-glob comandi + yolo per-sessione
