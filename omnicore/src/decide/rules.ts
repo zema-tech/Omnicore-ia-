@@ -29,6 +29,9 @@ const DESTRUCTIVE = new Set([
   "channel.announce",
   "skills.create",
   "agents.run",
+  "mcp.list",
+  "mcp.call",
+  "mcp.reload",
   "world.exec",
 ]);
 

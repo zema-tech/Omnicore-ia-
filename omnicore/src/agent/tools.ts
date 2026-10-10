@@ -10,6 +10,7 @@ import { web } from "../modules/web.ts";
 import { todos } from "../modules/todo.ts";
 import { channels } from "../modules/channels.ts";
 import { telegram } from "../modules/telegram.ts";
+import { mcp } from "../modules/mcp.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -41,6 +42,9 @@ export type ToolName =
   | "channel.announce"
   | "telegram.me"
   | "telegram.poll"
+  | "mcp.list"
+  | "mcp.call"
+  | "mcp.reload"
   | "cron.add"
   | "cron.list"
   | "cron.remove"
@@ -274,6 +278,33 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: r.data }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "poll fallito" };
       }
+      case "mcp.list": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "mcp", needsConfirm: true, preview: "mcp.list: avvia i server configurati" };
+        }
+        const r = await mcp.list();
+        return { name: call.name, ok: true, via: r.via, data: r.servers };
+      }
+      case "mcp.call": {
+        const server = String(args.server ?? "");
+        const tool = String(args.tool ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "mcp", needsConfirm: true, preview: `mcp.call ${server}.${tool}` };
+        }
+        if (!server || !tool) {
+          return { name: call.name, ok: false, via: "mcp", error: "mcp.call vuole {server, tool, args}" };
+        }
+        const r = await mcp.call(server, tool, (args.args ?? {}) as Record<string, unknown>);
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "mcp.call fallita" };
+      }
+      case "mcp.reload": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "mcp", needsConfirm: true, preview: "mcp.reload: ferma tutti i server" };
+        }
+        return { name: call.name, ok: true, via: "mcp", data: mcp.stop() };
+      }
       case "cron.add": {
         try {
           const job = cron.add(String(args.name ?? ""), (args.schedule ?? {}) as never, (args.payload ?? {}) as Record<string, unknown>);
@@ -459,6 +490,9 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "channel.announce", description: "Annuncio / invio su canali (conferma)" },
   { name: "telegram.me", description: "Verifica il bot Telegram configurato" },
   { name: "telegram.poll", description: "Leggi messaggi Telegram in arrivo {offset, timeout}" },
+  { name: "mcp.list", description: "Server MCP + tool scoperti (conferma)" },
+  { name: "mcp.call", description: "Chiama tool MCP {server, tool, args} (conferma)" },
+  { name: "mcp.reload", description: "Ferma tutti i server MCP (conferma)" },
   { name: "cron.add", description: "Pianifica un job {name, schedule, payload}" },
   { name: "cron.list", description: "Elenca i job pianificati" },
   { name: "cron.remove", description: "Rimuovi un job {name}" },
