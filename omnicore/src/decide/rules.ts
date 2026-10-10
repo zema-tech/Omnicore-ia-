@@ -87,6 +87,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "code.definition" ||
       name === "code.references" ||
       name === "web.fetch" ||
+      name === "web.search" ||
       name.startsWith("todo.")
     ) {
       out.push({ name, score: 5, reason: "sola lettura o scrittura propria" });

@@ -12,6 +12,7 @@ import { channels } from "../modules/channels.ts";
 import { telegram } from "../modules/telegram.ts";
 import { mcp } from "../modules/mcp.ts";
 import { memories } from "../modules/memories.ts";
+import { websearch } from "../modules/websearch.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -43,6 +44,7 @@ export type ToolName =
   | "code.references"
   | "code.lsp"
   | "web.fetch"
+  | "web.search"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -306,6 +308,15 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: r.page }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "fetch fallito" };
       }
+      case "web.search": {
+        const r = await websearch.search(String(args.query ?? ctx.text ?? ""), {
+          maxResults: typeof args.maxResults === "number" ? args.maxResults : undefined,
+          provider: typeof args.provider === "string" ? args.provider : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.results }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "ricerca fallita" };
+      }
       case "todo.add": {
         try {
           return { name: call.name, ok: true, via: "todo", data: todos.add(String(args.text ?? "")) };
@@ -565,6 +576,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "code.references", description: "Riferimenti a un simbolo {symbol}" },
   { name: "code.lsp", description: "Language server esterno {command, method, file, line} (conferma)" },
   { name: "web.fetch", description: "Leggi una pagina pubblica {url} (solo testo, anti-SSRF)" },
+  { name: "web.search", description: "Cerca sul web {query, maxResults?, provider?}" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
