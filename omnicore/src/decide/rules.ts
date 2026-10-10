@@ -102,6 +102,11 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "research.deep" ||
       name === "github.read" ||
       name === "decision.evaluate" ||
+      name === "meeting.start" ||
+      name === "meeting.append" ||
+      name === "meeting.status" ||
+      name === "meeting.end" ||
+      name === "meeting.list" ||
       name === "cookbook.scan" ||
       name === "cookbook.recommend" ||
       name.startsWith("todo.")

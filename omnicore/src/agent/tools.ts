@@ -21,6 +21,7 @@ import { cookbook } from "../modules/cookbook.ts";
 import { video } from "../modules/video.ts";
 import { github } from "../modules/github.ts";
 import { decision } from "../modules/decision.ts";
+import { meeting } from "../modules/meeting.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -61,6 +62,11 @@ export type ToolName =
   | "video.generate"
   | "github.read"
   | "decision.evaluate"
+  | "meeting.start"
+  | "meeting.append"
+  | "meeting.status"
+  | "meeting.end"
+  | "meeting.list"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -417,6 +423,41 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: { winner: r.winner, ranking: r.ranking, report: r.report } }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "valutazione fallita" };
       }
+      case "meeting.start": {
+        try {
+          const r = meeting.start(String(args.title ?? ""), Array.isArray(args.participants) ? args.participants.map(String) : []);
+          return { name: call.name, ok: true, via: "meeting(native)", data: r };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "meeting.append": {
+        try {
+          const r = meeting.append(String(args.id ?? ""), String(args.who ?? "?"), String(args.text ?? ""));
+          return { name: call.name, ok: true, via: "meeting(native)", data: r };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "meeting.status": {
+        try {
+          const r = meeting.status(String(args.id ?? ""));
+          return { name: call.name, ok: true, via: "meeting(native)", data: r };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "meeting.end": {
+        try {
+          const r = meeting.end(String(args.id ?? ""));
+          return { name: call.name, ok: true, via: "meeting(native)", data: r };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "meeting(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "meeting.list": {
+        return { name: call.name, ok: true, via: "meeting(native)", data: meeting.list() };
+      }
       case "todo.add": {
         try {
           return { name: call.name, ok: true, via: "todo", data: todos.add(String(args.text ?? "")) };
@@ -768,6 +809,11 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "video.generate", description: "Genera video da prompt {prompt, ...} (conferma, a pagamento)" },
   { name: "github.read", description: "Leggi GitHub {repo, type: issues|pulls|commits|diff, limit?, number?}" },
   { name: "decision.evaluate", description: "Valuta opzioni pesate {model?, criteria?, options[]}" },
+  { name: "meeting.start", description: "Apri riunione live {title, participants?}" },
+  { name: "meeting.append", description: "Aggiungi segmento {id, who?, text}" },
+  { name: "meeting.status", description: "Anteprima note live {id}" },
+  { name: "meeting.end", description: "Chiudi e archivia nel vault {id}" },
+  { name: "meeting.list", description: "Riunioni aperte" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
