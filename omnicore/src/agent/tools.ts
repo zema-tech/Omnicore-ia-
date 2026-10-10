@@ -20,6 +20,7 @@ import { research } from "../modules/research.ts";
 import { cookbook } from "../modules/cookbook.ts";
 import { video } from "../modules/video.ts";
 import { github } from "../modules/github.ts";
+import { decision } from "../modules/decision.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -59,6 +60,7 @@ export type ToolName =
   | "cookbook.serve"
   | "video.generate"
   | "github.read"
+  | "decision.evaluate"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -404,6 +406,16 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.data }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
+      }
+      case "decision.evaluate": {
+        const r = decision.evaluate({
+          model: typeof args.model === "string" ? args.model : undefined,
+          criteria: Array.isArray(args.criteria) ? args.criteria as never : undefined,
+          options: Array.isArray(args.options) ? args.options as never : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: { winner: r.winner, ranking: r.ranking, report: r.report } }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "valutazione fallita" };
       }
       case "todo.add": {
         try {
@@ -755,6 +767,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "cookbook.serve", description: "Scarica modello via Ollama {model} (conferma)" },
   { name: "video.generate", description: "Genera video da prompt {prompt, ...} (conferma, a pagamento)" },
   { name: "github.read", description: "Leggi GitHub {repo, type: issues|pulls|commits|diff, limit?, number?}" },
+  { name: "decision.evaluate", description: "Valuta opzioni pesate {model?, criteria?, options[]}" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
