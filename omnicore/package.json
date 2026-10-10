@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --experimental-strip-types src/index.ts",
     "agent": "node --experimental-strip-types src/index.ts --agent",
+    "stream": "node --experimental-strip-types src/index.ts --stream",
     "doctor": "node --experimental-strip-types src/index.ts --doctor",
     "fuse": "node --experimental-strip-types src/index.ts --fuse",
     "build": "tsc -p tsconfig.json",

@@ -3,7 +3,8 @@
 
 Uso:  python3 server.py [--port 8100]      (da omnicore/)
 Poi:  http://127.0.0.1:8100               (dashboard)
-      POST /api/chat   {text, session_id?} -> agent loop TS + log in sessione unica
+       POST /api/chat   {text, session_id?} -> agent loop TS + log in sessione unica
+       POST /api/chat/stream {text}  -> SSE live (token/tool_end/loop_end/result)
       POST /api/route  {text}              -> {intent, handler} (solo classifica, non esegue)
       POST /api/fuse   {text}              -> alias legacy di /api/chat (stesso loop TS)
       POST /api/omni   {source, text}      -> esegue OmniLang (DSL separata)
@@ -231,6 +232,39 @@ class Handler(BaseHTTPRequestHandler):
                         "answer": str(res.get("reply", "") or res.get("error", ""))[:2000],
                         "summary": _trace_summary(res)})
             self._json({**res, "session_id": sid})
+            return
+        if self.path == "/api/chat/stream":
+            # SSE live: righe NDJSON di `node --stream` girate come eventi.
+            text = str(body.get("text", ""))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            try:
+                p = subprocess.Popen(
+                    [NODE, "--experimental-strip-types", str(TS_ENTRY),
+                     "--stream", text],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    text=True, cwd=str(HERE), bufsize=1)
+            except FileNotFoundError:
+                self.wfile.write(f"data: {json.dumps({'event': 'error', 'error': 'node non trovato'})}\n\n".encode())
+                return
+            assert p.stdout is not None
+            try:
+                for line in p.stdout:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    self.wfile.write(f"data: {line}\n\n".encode())
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                try:
+                    p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    p.kill()
             return
         self._json({"error": "not found"}, 404)
 

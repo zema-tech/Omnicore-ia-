@@ -94,6 +94,67 @@ export async function llmChatVia(system: string, user: string, maxTokens = 800):
   return null;
 }
 
+/** Chat streaming (SSE OpenAI-compatibile): token via onToken, fallback non-stream. Mai throw oltre null. */
+export async function llmChatStream(
+  system: string,
+  user: string,
+  maxTokens = 800,
+  onToken: (t: string) => void = () => {},
+): Promise<{ text: string; via: LlmProvider; streamed: boolean } | null> {
+  const c = llmConfig();
+  if (c.provider !== "local" && c.baseUrl) {
+    try {
+      const h: Record<string, string> = c.apiKey ? { Authorization: `Bearer ${c.apiKey}` } : {};
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), c.timeoutMs * 2);
+      try {
+        const r = await fetch(`${c.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...h },
+          body: JSON.stringify({ model: c.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: maxTokens, temperature: 0.6, stream: true }),
+          signal: ctl.signal,
+        });
+        if (!r.ok || !r.body) throw new Error(`http ${r.status}`);
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        let text = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            const s = line.trim();
+            if (!s.startsWith("data:")) continue;
+            const payload = s.slice(5).trim();
+            if (payload === "[DONE]") continue;
+            try {
+              const j = JSON.parse(payload);
+              const piece = j?.choices?.[0]?.delta?.content ?? j?.choices?.[0]?.message?.content ?? "";
+              if (piece) {
+                text += piece;
+                try {
+                  onToken(piece);
+                } catch { /* callback mai fatale */ }
+              }
+            } catch { /* chunk parziale: ignora */ }
+          }
+        }
+        try {
+          await reader.cancel();
+        } catch { /* chiusura best-effort */ }
+        if (text.trim()) return { text, via: "api", streamed: true };
+      } finally {
+        clearTimeout(t);
+      }
+    } catch { /* fallback sotto */ }
+  }
+  const plain = await llmChatVia(system, user, maxTokens);
+  return plain ? { ...plain, streamed: false } : null;
+}
+
 /** Testo risposta LLM o null se nessun backend raggiungibile. Mai throw oltre null. */
 export async function llmChat(system: string, user: string, maxTokens = 800): Promise<string | null> {
   const r = await llmChatVia(system, user, maxTokens);

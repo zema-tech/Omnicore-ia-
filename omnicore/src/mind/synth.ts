@@ -1,5 +1,5 @@
 // Sintesi Omnicore TS — mirror di omnicore_py/mind/synth.py.
-import { llmChat, llmStatus } from "./llm.ts";
+import { llmChat, llmChatStream, llmStatus } from "./llm.ts";
 import { remember, recallMem, recentHistory } from "./memory.ts";
 import { recallFor } from "../vault/notes.ts";
 import type { FuseStep } from "../pipeline.ts";
@@ -82,10 +82,14 @@ export function buildLlmPrompt(text: string, intent: string, steps: FuseStep[]):
   return `Messaggio utente: ${text}\nIntento: ${intent}\nStoria recente:\n${h}\nMemoria rilevante:\n${m}\nNote vault:\n${vault}\nMemoria: ${short(brain?.ok ? brain?.result : brain?.error, 700)}\nCodice: ${short(hands?.ok ? hands?.result : hands?.error, 900)}\nPresenza: ${short(face?.ok ? face?.result : face?.error, 400)}\n\nRispondi come Omnicore in prima persona, senza citare gli step interni né nomi di progetti o motori.`;
 }
 
-export async function synthesize(text: string, intent: string, steps: FuseStep[]) {
+export async function synthesize(text: string, intent: string, steps: FuseStep[], onToken?: (t: string) => void) {
   try { remember(text, intent); } catch { /* best-effort */ }
   let llm: string | null = null;
-  try { llm = await llmChat(PERSONA, buildLlmPrompt(text, intent, steps)); } catch { llm = null; }
+  try {
+    llm = onToken
+      ? (await llmChatStream(PERSONA, buildLlmPrompt(text, intent, steps), 800, onToken))?.text ?? null
+      : await llmChat(PERSONA, buildLlmPrompt(text, intent, steps));
+  } catch { llm = null; }
   if (llm && !looksLikePlan(llm)) {
     const st = llmStatus();
     return { answer: llm, via: "llm", model: st.model || "ollama" };

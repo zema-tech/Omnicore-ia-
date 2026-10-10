@@ -29,6 +29,18 @@ export interface AgentResult {
   rounds: number;
 }
 
+/** Eventi live del loop (streaming): token, tool_start/end, loop_end. */
+export type LoopEvent =
+  | { event: "tool_start"; name: string }
+  | { event: "tool_end"; name: string; ok: boolean }
+  | { event: "token"; text: string }
+  | { event: "loop_end"; rounds: number; planner: "llm" | "keyword" };
+
+export interface RunAgentOpts {
+  directory?: string;
+  onEvent?: (e: LoopEvent) => void;
+}
+
 /** Frasi con cui l'utente conferma esplicitamente ("confermo: ...", "sì, procedi"). */
 const CONFIRM_RE = /\b(conferm\w*|vai pure|procedi pure|esegui pure|s[iì][, ]?\s*(procedi|esegui|vai)|do it|autorizzo)\b/i;
 
@@ -126,11 +138,19 @@ function toSteps(trace: ToolResult[]): FuseStep[] {
 /** Un turno agente completo: giri osserva→agisci (ReAct) → sintesi. */
 export async function runAgent(
   userText: string,
-  opts: { directory?: string } = {},
+  opts: RunAgentOpts = {},
 ): Promise<AgentResult> {
+  const emit = (e: LoopEvent) => {
+    try {
+      opts.onEvent?.(e);
+    } catch { /* listener mai fatale */ }
+  };
   // Dipendenza umana: "approvo/nego <id>" decide su azioni registrate, prima di tutto.
   const approvalTurn = await handleApprovalAnswer(userText, opts);
-  if (approvalTurn) return approvalTurn;
+  if (approvalTurn) {
+    emit({ event: "loop_end", rounds: 1, planner: "keyword" });
+    return approvalTurn;
+  }
 
   const { intent, calls: planned, planner } = await resolvePlan(userText);
   const gates = moduleGates();
@@ -148,6 +168,7 @@ export async function runAgent(
     );
     allCalls.push(...calls);
     for (const call of calls) {
+      emit({ event: "tool_start", name: call.name });
       // Decide: le azioni distruttive passano sempre da verify (la conferma
       // utente abilita, ma loop/offline restano bloccati).
       if ((DESTRUCTIVE_TOOLS as string[]).includes(call.name)) {
@@ -171,11 +192,13 @@ export async function runAgent(
           } else {
             trace.push({ name: call.name, ok: false, via: `decide(${v.level})`, error: `bloccata: ${v.verdict.reason}` });
           }
+          emit({ event: "tool_end", name: call.name, ok: false });
           continue;
         }
       }
       const result = await runTool(call, { text: userText, directory: opts.directory });
       trace.push(result);
+      emit({ event: "tool_end", name: call.name, ok: result.ok });
       if (!result.ok) failedKeys.push(attemptKey(call));
     }
   };
@@ -195,9 +218,10 @@ export async function runAgent(
     rounds++;
   }
 
-  const mind = await synthesize(userText, intent, toSteps(trace));
+  const mind = await synthesize(userText, intent, toSteps(trace), (t) => emit({ event: "token", text: t }));
   const respond = await runTool({ name: "respond", args: { text: mind.answer } }, { text: userText });
   trace.push(respond);
+  emit({ event: "loop_end", rounds, planner });
 
   return {
     agent: banner(),
