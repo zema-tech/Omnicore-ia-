@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "agent": "npm run agent --workspace=omnicore --",
+    "mcp-serve": "npm run mcp-serve --workspace=omnicore",
     "chat": "npm run chat --workspace=omnicore",
     "tui": "npm run tui --workspace=omnicore",
     "stream": "npm run stream --workspace=omnicore --",
