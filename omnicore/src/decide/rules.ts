@@ -38,6 +38,7 @@ const DESTRUCTIVE = new Set([
   "mcp.call",
   "mcp.reload",
   "code.lsp",
+  "cookbook.serve",
   "world.exec",
 ]);
 
@@ -98,6 +99,8 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "web.fetch" ||
       name === "web.search" ||
       name === "research.deep" ||
+      name === "cookbook.scan" ||
+      name === "cookbook.recommend" ||
       name.startsWith("todo.")
     ) {
       out.push({ name, score: 5, reason: "sola lettura o scrittura propria" });

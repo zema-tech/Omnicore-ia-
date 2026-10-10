@@ -17,6 +17,7 @@ import { budget } from "../modules/budget.ts";
 import { memories } from "../modules/memories.ts";
 import { websearch } from "../modules/websearch.ts";
 import { research } from "../modules/research.ts";
+import { cookbook } from "../modules/cookbook.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -51,6 +52,9 @@ export type ToolName =
   | "web.fetch"
   | "web.search"
   | "research.deep"
+  | "cookbook.scan"
+  | "cookbook.recommend"
+  | "cookbook.serve"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -348,6 +352,27 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.report }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "ricerca fallita" };
+      }
+      case "cookbook.scan": {
+        const r = await cookbook.scan();
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.hw }
+          : { name: call.name, ok: false, via: r.via, error: "scansione fallita" };
+      }
+      case "cookbook.recommend": {
+        const s = await cookbook.scan();
+        const installed = Array.isArray(args.installed) ? args.installed.map(String) : s.hw.ollama.models;
+        return { name: call.name, ok: true, via: "cookbook(native)", data: cookbook.recommend(s.hw, installed) };
+      }
+      case "cookbook.serve": {
+        const model = String(args.model ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "cookbook", needsConfirm: true, preview: `cookbook.serve ${model} (download GB)` };
+        }
+        const r = await cookbook.serve(model);
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.detail }
+          : { name: call.name, ok: false, via: r.via, error: r.detail };
       }
       case "todo.add": {
         try {
@@ -694,6 +719,9 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "web.fetch", description: "Leggi una pagina pubblica {url} (solo testo, anti-SSRF)" },
   { name: "web.search", description: "Cerca sul web {query, maxResults?, provider?}" },
   { name: "research.deep", description: "Ricerca approfondita con report {query, maxSources?, depth?}" },
+  { name: "cookbook.scan", description: "Hardware + modelli locali installati" },
+  { name: "cookbook.recommend", description: "Modelli consigliati per questo hardware" },
+  { name: "cookbook.serve", description: "Scarica modello via Ollama {model} (conferma)" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
