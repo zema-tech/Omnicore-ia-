@@ -1,5 +1,25 @@
 # Changelog
 
+## Tappa 20 — Web search nativo
+`web.search {query, maxResults, provider}`: DuckDuckGo gratis + Exa con key,
+fallback automatico. Solo lettura.
+
+## Tappa 19 — Streaming + prompt-cache
+`llmChatStream` SSE con fallback, eventi `token/tool_start/tool_end/loop_end`,
+`npm run stream`, endpoint `/api/chat/stream`, prefisso prompt byte-stabile.
+
+## Tappa 18 — Code intelligence
+`code.symbols/definition/references` su indice nativo + `code.lsp` verso
+language server esterni via stdio (conferma).
+
+## Tappa 17 — Memoria strutturata
+SQLite + FTS5 BM25 con `memory.store/recall/forget`, rerank coseno opzionale,
+fuso in `memory.search` come fonte `store`.
+
+## Tappa 16 — Client MCP nativo
+Trasporti stdio + http, `mcp.list/call/reload`, config env o `.mcp.json`,
+conferma come i distruttivi.
+
 ## Tappa 15 — Secondario file-worker (agents.run)
 `agents.run {name, task}`: agente registrato + attivo esegue `code.task`
 isolato e riporta `<task_result>` (summary, file, timeline). Conferma una

@@ -58,9 +58,10 @@ I vendor restano **solo riferimento**: qui sotto cosa abbiamo imparato e cosa
 ## Roadmap (ordine)
 
 1. ✅ ReAct, BYOK, browser, skill-create, Telegram send/poll, agents.run
-2. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
-3. Subagent con sessione figlia vera + permessi ridotti
-4. Compaction/prune contesto + fork sessioni
-5. Deny-glob comandi + yolo per-sessione
-6. SQLite/WAL per sessioni, FTS per memoria
-7. WhatsApp/Discord reali, throttler, media
+2. ✅ MCP client, memoria SQLite FTS5, code intelligence, streaming SSE, web.search
+3. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
+4. Subagent con sessione figlia vera + permessi ridotti
+5. Compaction/prune contesto + fork sessioni
+6. Deny-glob comandi + yolo per-sessione
+7. FTS per vault, embedding via provider opzionale
+8. WhatsApp/Discord reali, throttler, media
