@@ -16,6 +16,7 @@ import { mcp } from "../modules/mcp.ts";
 import { budget } from "../modules/budget.ts";
 import { memories } from "../modules/memories.ts";
 import { websearch } from "../modules/websearch.ts";
+import { research } from "../modules/research.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -49,6 +50,7 @@ export type ToolName =
   | "code.lsp"
   | "web.fetch"
   | "web.search"
+  | "research.deep"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -336,6 +338,15 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
         });
         return r.ok
           ? { name: call.name, ok: true, via: r.via, data: r.results }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "ricerca fallita" };
+      }
+      case "research.deep": {
+        const r = await research.deep(String(args.query ?? ctx.text ?? ""), {
+          maxSources: typeof args.maxSources === "number" ? args.maxSources : undefined,
+          depth: typeof args.depth === "number" ? args.depth : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.report }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "ricerca fallita" };
       }
       case "todo.add": {
@@ -682,6 +693,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "code.lsp", description: "Language server esterno {command, method, file, line} (conferma)" },
   { name: "web.fetch", description: "Leggi una pagina pubblica {url} (solo testo, anti-SSRF)" },
   { name: "web.search", description: "Cerca sul web {query, maxResults?, provider?}" },
+  { name: "research.deep", description: "Ricerca approfondita con report {query, maxSources?, depth?}" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
