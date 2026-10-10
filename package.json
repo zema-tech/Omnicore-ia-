@@ -11,6 +11,7 @@
   "scripts": {
     "agent": "npm run agent --workspace=omnicore --",
     "chat": "npm run chat --workspace=omnicore",
+    "tui": "npm run tui --workspace=omnicore",
     "stream": "npm run stream --workspace=omnicore --",
     "doctor": "npm run doctor --workspace=omnicore",
     "serve": "npm run serve --workspace=omnicore",

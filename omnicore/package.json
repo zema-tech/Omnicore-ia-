@@ -10,6 +10,7 @@
     "dev": "node --experimental-strip-types src/index.ts",
     "agent": "node --experimental-strip-types src/index.ts --agent",
     "chat": "node --experimental-strip-types src/chat.ts",
+    "tui": "node --experimental-strip-types src/tui.ts",
     "stream": "node --experimental-strip-types src/index.ts --stream",
     "doctor": "node --experimental-strip-types src/index.ts --doctor",
     "fuse": "node --experimental-strip-types src/index.ts --fuse",
