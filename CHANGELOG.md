@@ -1,5 +1,26 @@
 # Changelog
 
+## Tappa 39 — WhatsApp + Email nativi
+WhatsApp Cloud API (invio + parser/verify webhook) ed Email IMAP/SMTP
+scritti a mano (STARTTLS obbligatorio, PEEK senza segnare letto).
+Signal resta fuori: serve binary esterno. Tool con conferma per gli invii.
+
+## Tappa 38 — Memoria attiva
+Auto-learn conservativo nel loop (fatti espliciti, dedup, max 3/turno,
+kill-switch `OMNICORE_ACTIVE_MEMORY=0`), conteggio in `learned`.
+
+## Tappa 37 — Meeting live
+`meeting.start/append/status/end/list`: timeline, action item automatici,
+archivio Markdown in vault. Niente audio/STT: serve hardware/dipendenze.
+
+## Tappa 36 — Decisioni pesate
+`decision.evaluate` deterministico (budget, priority, custom), report con
+pesi e raccomandazione. Solo lettura.
+
+## Tappa 35 — GitHub reader
+`github.read`: issues, pulls, commits, diff (PR/commit), token opzionale.
+Solo lettura: niente conferma (regola letture).
+
 ## Tappa 34 — TUI a pannelli ANSI
 `npm run tui`: chat | tool | stato, token live, input raw con storia,
 slash, Ctrl+C per interrompere. Zero dipendenze (niente blessed/ink).
