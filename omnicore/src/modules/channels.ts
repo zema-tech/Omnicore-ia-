@@ -2,11 +2,12 @@
 // channels/ + extensions telegram/whatsapp/discord/slack come backend).
 //
 // Channel = {id, kind, status(), send()}. Backend reali: console (log),
-// webhook (POST JSON) e telegram (Bot API: invio reale, lettura via poll).
-// whatsapp/discord restano needsConfig onesto finché non collegati.
-// Zero dipendenze.
+// webhook (POST JSON), telegram (Bot API), discord (Bot REST + Gateway),
+// slack (Web API). whatsapp resta needsConfig onesto. Zero dipendenze.
 import { telegram } from "./telegram.ts";
-export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord";
+import { discord } from "./discord.ts";
+import { slack } from "./slack.ts";
+export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack";
 
 export interface ChannelDef {
   id: string;
@@ -34,7 +35,8 @@ export function listChannels(): ChannelDef[] {
   }
   if (env("TELEGRAM_BOT_TOKEN")) out.push({ id: "telegram", kind: "telegram" });
   if (env("WHATSAPP_TOKEN")) out.push({ id: "whatsapp", kind: "whatsapp" });
-  if (env("DISCORD_WEBHOOK_URL")) out.push({ id: "discord", kind: "discord" });
+  if (env("DISCORD_BOT_TOKEN")) out.push({ id: "discord", kind: "discord" });
+  if (env("SLACK_BOT_TOKEN")) out.push({ id: "slack", kind: "slack" });
   return out;
 }
 
@@ -43,6 +45,8 @@ export function channelStatus(): ChannelStatus[] {
     if (c.kind === "console") return { id: c.id, kind: c.kind, ok: true, detail: "log locale attivo" };
     if (c.kind === "webhook") return { id: c.id, kind: c.kind, ok: true, detail: `POST ${c.url}` };
     if (c.kind === "telegram") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (verifica con telegram.me, leggi con telegram.poll)" };
+    if (c.kind === "discord") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (invio discord.send, lettura discord.listen)" };
+    if (c.kind === "slack") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (invio slack.send)" };
     return { id: c.id, kind: c.kind, ok: false, detail: `${c.kind}: backend non collegato (serve token/adapter dedicato)` };
   });
 }
@@ -98,6 +102,36 @@ export async function channelSend(message: string, targets: string[] = []): Prom
       }
       for (const id of ids) {
         const r = await telegram.send(Number(id), message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
+      }
+      continue;
+    }
+    if (c.kind === "discord") {
+      // target = channel id numerici + id "discord" esplicito.
+      const ids = targets.filter((t) => t !== "discord" && /^\d+$/.test(t));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve channel id target (es. targets:["discord","123"])`);
+        continue;
+      }
+      for (const id of ids) {
+        const r = await discord.send(id, message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
+      }
+      continue;
+    }
+    if (c.kind === "slack") {
+      // target = channel id (C…/D…) + id "slack" esplicito.
+      const ids = targets.filter((t) => t !== "slack" && /^[A-Za-z0-9_-]{3,}$/.test(t));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve channel target (es. targets:["slack","C123"])`);
+        continue;
+      }
+      for (const id of ids) {
+        const r = await slack.send(id, message);
         results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
         if (!r.ok) allOk = false;
       }

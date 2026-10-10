@@ -18,7 +18,7 @@ const KEYS = ["OMNICORE_CRON_FILE", "OMNICORE_AGENTS_FILE", "OMNICORE_WEBHOOK_UR
 
 beforeEach(() => {
   saved = {};
-  for (const k of [...KEYS, "TELEGRAM_BOT_TOKEN", "WHATSAPP_TOKEN", "DISCORD_WEBHOOK_URL"]) {
+  for (const k of [...KEYS, "TELEGRAM_BOT_TOKEN", "WHATSAPP_TOKEN", "DISCORD_BOT_TOKEN", "SLACK_BOT_TOKEN", "DISCORD_API_BASE", "SLACK_API_BASE", "DISCORD_GW_URL"]) {
     saved[k] = process.env[k];
     delete process.env[k];
   }

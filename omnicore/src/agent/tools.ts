@@ -10,6 +10,8 @@ import { web } from "../modules/web.ts";
 import { todos } from "../modules/todo.ts";
 import { channels } from "../modules/channels.ts";
 import { telegram } from "../modules/telegram.ts";
+import { discord } from "../modules/discord.ts";
+import { slack } from "../modules/slack.ts";
 import { mcp } from "../modules/mcp.ts";
 import { memories } from "../modules/memories.ts";
 import { websearch } from "../modules/websearch.ts";
@@ -53,6 +55,9 @@ export type ToolName =
   | "channel.announce"
   | "telegram.me"
   | "telegram.poll"
+  | "discord.send"
+  | "discord.listen"
+  | "slack.send"
   | "mcp.list"
   | "mcp.call"
   | "mcp.reload"
@@ -366,6 +371,34 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: r.data }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "poll fallito" };
       }
+      case "discord.send": {
+        const channel = String(args.channel ?? args.target ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "discord", needsConfirm: true, preview: `discord.send #${channel}: ${String(args.text ?? args.message ?? "").slice(0, 250)}` };
+        }
+        const r = await discord.send(channel, String(args.text ?? args.message ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "discord.listen": {
+        const r = await discord.listen({
+          timeoutSec: typeof args.timeout === "number" ? args.timeout : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "ascolto fallito" };
+      }
+      case "slack.send": {
+        const channel = String(args.channel ?? args.target ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "slack", needsConfirm: true, preview: `slack.send #${channel}: ${String(args.text ?? args.message ?? "").slice(0, 250)}` };
+        }
+        const r = await slack.send(channel, String(args.text ?? args.message ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
       case "mcp.list": {
         if (args.confirm !== true) {
           return { name: call.name, ok: false, via: "mcp", needsConfirm: true, preview: "mcp.list: avvia i server configurati" };
@@ -608,6 +641,9 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "channel.announce", description: "Annuncio / invio su canali (conferma)" },
   { name: "telegram.me", description: "Verifica il bot Telegram configurato" },
   { name: "telegram.poll", description: "Leggi messaggi Telegram in arrivo {offset, timeout}" },
+  { name: "discord.send", description: "Invia su Discord {channel, text} (conferma)" },
+  { name: "discord.listen", description: "Ascolta gateway Discord {timeout} (bounded)" },
+  { name: "slack.send", description: "Invia su Slack {channel, text} (conferma)" },
   { name: "mcp.list", description: "Server MCP + tool scoperti (conferma)" },
   { name: "mcp.call", description: "Chiama tool MCP {server, tool, args} (conferma)" },
   { name: "mcp.reload", description: "Ferma tutti i server MCP (conferma)" },

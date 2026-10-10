@@ -27,6 +27,8 @@ const DESTRUCTIVE = new Set([
   "code.shell",
   "code.edit",
   "channel.announce",
+  "discord.send",
+  "slack.send",
   "skills.create",
   "agents.run",
   "agents.fanout",
@@ -74,6 +76,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "channel.status" ||
       name === "telegram.me" ||
       name === "telegram.poll" ||
+      name === "discord.listen" ||
       name === "memory.note_save" ||
       name === "code.read" ||
       name === "cron.list" ||
