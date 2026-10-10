@@ -63,6 +63,7 @@ export type ToolName =
   | "agents.list"
   | "agents.pause"
   | "agents.run"
+  | "agents.fanout"
   | "permissions.request"
   | "permissions.respond"
   | "permissions.list"
@@ -455,6 +456,28 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: `agents(${r.via})`, data: { agent: def.name, summary: r.summary, filesTouched: r.filesTouched, report } }
           : { name: call.name, ok: false, via: `agents(${r.via})`, error: report.slice(0, 600) };
       }
+      case "agents.fanout": {
+        // Coordinatore: task indipendenti in parallelo, aggregazione finale.
+        const raw = args.items;
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "agents", needsConfirm: true, preview: `agents.fanout ${Array.isArray(raw) ? raw.length : 0} task` };
+        }
+        const items = (Array.isArray(raw) ? raw : []).slice(0, 5).map((x: any) => ({
+          agent: typeof x?.agent === "string" ? x.agent : undefined,
+          role: x?.role === "research" || x?.role === "ops" || x?.role === "code" ? x.role : undefined,
+          task: String(x?.task ?? ""),
+        }));
+        if (!items.length || items.some((x) => !x.task.trim() || (!x.agent && !x.role))) {
+          return { name: call.name, ok: false, via: "agents", error: "agents.fanout vuole items:[{agent|role, task}] (max 5)" };
+        }
+        const rep = await agents.fanout(items, {
+          workspace: (args.workspace as string | undefined) ?? ctx.directory,
+          budgetSteps: Number(args.budgetSteps ?? 8),
+        });
+        return rep.ok
+          ? { name: call.name, ok: true, via: "agents(fanout)", data: rep }
+          : { name: call.name, ok: false, via: "agents(fanout)", error: rep.summary.slice(0, 600) };
+      }
       case "permissions.request": {
         try {
           const req = permissions.request(String(args.action ?? ""), String(args.target ?? ""), String(args.reason ?? ""));
@@ -595,6 +618,7 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "agents.list", description: "Elenca gli agenti registrati" },
   { name: "agents.pause", description: "Mette in pausa un agente {name}" },
   { name: "agents.run", description: "Secondario file-worker isolato {name, task} (conferma)" },
+  { name: "agents.fanout", description: "Task paralleli con coordinatore {items:[{agent|role,task}]} (conferma)" },
   { name: "permissions.request", description: "Chiede approvazione {action, target, reason}" },
   { name: "permissions.respond", description: "Approva/nega {id, allow}" },
   { name: "permissions.list", description: "Richieste di approvazione aperte" },

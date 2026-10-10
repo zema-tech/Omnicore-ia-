@@ -29,6 +29,7 @@ const DESTRUCTIVE = new Set([
   "channel.announce",
   "skills.create",
   "agents.run",
+  "agents.fanout",
   "mcp.list",
   "mcp.call",
   "mcp.reload",
