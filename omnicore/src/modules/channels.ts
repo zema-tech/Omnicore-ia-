@@ -8,8 +8,9 @@ import { telegram } from "./telegram.ts";
 import { discord } from "./discord.ts";
 import { slack } from "./slack.ts";
 import { whatsapp } from "./whatsapp.ts";
+import { signal } from "./signal.ts";
 import { email } from "./email.ts";
-export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack" | "email";
+export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack" | "email" | "signal";
 
 export interface ChannelDef {
   id: string;
@@ -40,6 +41,7 @@ export function listChannels(): ChannelDef[] {
   if (env("DISCORD_BOT_TOKEN")) out.push({ id: "discord", kind: "discord" });
   if (env("SLACK_BOT_TOKEN")) out.push({ id: "slack", kind: "slack" });
   if (env("SMTP_HOST") || env("IMAP_HOST")) out.push({ id: "email", kind: "email" });
+  if (env("SIGNAL_NUMBER")) out.push({ id: "signal", kind: "signal" });
   return out;
 }
 
@@ -52,6 +54,7 @@ export function channelStatus(): ChannelStatus[] {
     if (c.kind === "slack") return { id: c.id, kind: c.kind, ok: true, detail: "bot configurato (invio slack.send)" };
     if (c.kind === "whatsapp") return { id: c.id, kind: c.kind, ok: true, detail: "business api configurata (invio whatsapp.send)" };
     if (c.kind === "email") return { id: c.id, kind: c.kind, ok: true, detail: "smtp/imap configurati (invio email.send, lettura email.read)" };
+    if (c.kind === "signal") return { id: c.id, kind: c.kind, ok: true, detail: "signal-cli configurato (invio signal.send, lettura signal.poll)" };
     return { id: c.id, kind: c.kind, ok: false, detail: `${c.kind}: backend non collegato (serve token/adapter dedicato)` };
   });
 }
@@ -168,6 +171,21 @@ export async function channelSend(message: string, targets: string[] = []): Prom
       const subject = `Omnicore — ${new Date().toISOString().slice(0, 10)}`;
       for (const id of ids) {
         const r = await email.send(id, subject, message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
+      }
+      continue;
+    }
+    if (c.kind === "signal") {
+      // target = numeri con + (come whatsapp) + id "signal" esplicito.
+      const ids = targets.filter((t) => t !== "signal" && /^\+\d[\d\s-]{5,}$/.test(t));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve numero target con + (es. targets:["signal","+39123"])`);
+        continue;
+      }
+      for (const id of ids) {
+        const r = await signal.send(id, message);
         results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
         if (!r.ok) allOk = false;
       }

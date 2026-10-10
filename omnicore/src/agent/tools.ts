@@ -24,6 +24,7 @@ import { decision } from "../modules/decision.ts";
 import { meeting } from "../modules/meeting.ts";
 import { whatsapp } from "../modules/whatsapp.ts";
 import { email } from "../modules/email.ts";
+import { signal } from "../modules/signal.ts";
 import { indexSymbols, findDefinition, findReferences, lsp } from "../../../packages/code/src/index.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
@@ -72,6 +73,8 @@ export type ToolName =
   | "whatsapp.send"
   | "email.send"
   | "email.read"
+  | "signal.send"
+  | "signal.poll"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -493,6 +496,24 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: r.data }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
       }
+      case "signal.send": {
+        const to = String(args.to ?? args.target ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "signal", needsConfirm: true, preview: `signal.send ${to}: ${String(args.text ?? args.message ?? "").slice(0, 200)}` };
+        }
+        const r = await signal.send(to, String(args.text ?? args.message ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "signal.poll": {
+        const r = await signal.poll({
+          timeoutSec: typeof args.timeout === "number" ? args.timeout : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
+      }
       case "todo.add": {
         try {
           return { name: call.name, ok: true, via: "todo", data: todos.add(String(args.text ?? "")) };
@@ -852,6 +873,8 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "whatsapp.send", description: "Invia WhatsApp {to, text} (conferma)" },
   { name: "email.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },
+  { name: "signal.send", description: "Invia Signal {to, text} (conferma)" },
+  { name: "signal.poll", description: "Leggi messaggi Signal {timeout?}" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },
