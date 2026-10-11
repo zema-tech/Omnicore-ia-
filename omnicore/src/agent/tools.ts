@@ -31,6 +31,7 @@ import { gchat } from "../modules/gchat.ts";
 import { teams } from "../modules/teams.ts";
 import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
 import { board } from "../modules/workboard.ts";
+import { plugins } from "../modules/plugins.ts";
 import { tasks } from "../modules/tasks.ts";
 import { collab } from "../modules/collab.ts";
 import { google } from "../modules/google.ts";
@@ -93,6 +94,11 @@ export type ToolName =
   | "debug.break"
   | "debug.go"
   | "debug.vars"
+  | "plugin.list"
+  | "plugin.info"
+  | "plugin.load"
+  | "plugin.unload"
+  | "plugin.call"
   | "board.add"
   | "board.list"
   | "board.claim"
@@ -763,6 +769,45 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: "code(dap)", data: r.variables }
           : { name: call.name, ok: false, via: "code(dap)", error: r.error ?? "vars fallite" };
       }
+      case "plugin.list": {
+        return { name: call.name, ok: true, via: "plugin(native)", data: plugins.list().map((p) => ({ ...p.manifest, loaded: p.loaded })) };
+      }
+      case "plugin.info": {
+        const p = plugins.list().find((x) => x.manifest.name === String(args.name ?? "").toLowerCase());
+        if (!p) return { name: call.name, ok: false, via: "plugin(native)", error: `plugin non installato: ${args.name}` };
+        const loaded = plugins.tools().filter((t) => t.plugin === p.manifest.name);
+        return { name: call.name, ok: true, via: "plugin(native)", data: { ...p.manifest, dir: p.dir, loaded: p.loaded, tools: loaded } };
+      }
+      case "plugin.load": {
+        // Esegue codice locale: conferma come gli altri esegui-codice.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "plugin", needsConfirm: true, preview: `plugin.load ${args.name ?? args.path ?? ""} (esegue codice locale)` };
+        }
+        try {
+          const name = String(args.name ?? "");
+          const found = name ? plugins.list().find((x) => x.manifest.name === name.toLowerCase()) : null;
+          const lp = await plugins.load(found ? found.dir : String(args.path ?? ""));
+          return { name: call.name, ok: true, via: "plugin(native)", data: { name: lp.manifest.name, tools: lp.tools.map((t) => t.name), hooks: lp.hooks.map((h) => h.event) } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "plugin(native)", error: String(e).slice(0, 250) };
+        }
+      }
+      case "plugin.unload": {
+        const done = plugins.unload(String(args.name ?? ""));
+        return done
+          ? { name: call.name, ok: true, via: "plugin(native)", data: { unloaded: args.name } }
+          : { name: call.name, ok: false, via: "plugin(native)", error: `plugin non caricato: ${args.name}` };
+      }
+      case "plugin.call": {
+        // Delega a codice plugin: conferma (l'host non sa cosa fa dentro).
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "plugin", needsConfirm: true, preview: `plugin.call ${args.plugin}.${args.tool}` };
+        }
+        const r = await plugins.call(String(args.plugin ?? ""), String(args.tool ?? ""), (args.args ?? {}) as Record<string, unknown>);
+        return r.ok
+          ? { name: call.name, ok: true, via: "plugin(native)", data: r.data }
+          : { name: call.name, ok: false, via: "plugin(native)", error: r.error ?? "plugin.call fallita" };
+      }
       case "whatsapp.send": {
         const to = String(args.to ?? args.target ?? "");
         if (args.confirm !== true) {
@@ -1212,6 +1257,11 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "debug.break", description: "Breakpoint {session, file, line}" },
   { name: "debug.go", description: "Avanza esecuzione {session, op} (conferma)" },
   { name: "debug.vars", description: "Variabili {session, ref}" },
+  { name: "plugin.list", description: "Plugin installati" },
+  { name: "plugin.info", description: "Dettagli plugin {name}" },
+  { name: "plugin.load", description: "Carica plugin {name|path} (conferma, esegue codice)" },
+  { name: "plugin.unload", description: "Scarica plugin {name}" },
+  { name: "plugin.call", description: "Chiama tool plugin {plugin, tool, args} (conferma)" },
   { name: "board.add", description: "Accoda task {title, priority?, dependsOn?, payload?}" },
   { name: "board.list", description: "Task in coda {status?}" },
   { name: "board.claim", description: "Prendi prossimo task pronto {owner}" },

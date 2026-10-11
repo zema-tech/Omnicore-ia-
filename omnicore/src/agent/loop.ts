@@ -4,6 +4,7 @@ import { SYSTEM_PROMPT, banner } from "./identity.ts";
 import { runTool, type ToolCall, type ToolResult } from "./tools.ts";
 import { resolvePlan, planFollowup, summarizeTrace } from "./plan.ts";
 import { learnFromTurn } from "../modules/memories.ts";
+import { emitHook } from "../modules/plugins.ts";
 import { decideVerify } from "../decide/index.ts";
 import { DESTRUCTIVE_TOOLS, attemptKey } from "../decide/rules.ts";
 import { approvalRequest, approvalGet, approvalRespond } from "../modules/permissions.ts";
@@ -243,6 +244,11 @@ export async function runAgent(
   const respond = await runTool({ name: "respond", args: { text: mind.answer } }, { text: userText });
   trace.push(respond);
   emit({ event: "loop_end", rounds, planner });
+
+  // Hook plugin turn_end (best-effort, mai fatale per il turno).
+  try {
+    await emitHook("turn_end", { text: userText, intent, rounds, planner, reply: mind.answer.slice(0, 500) });
+  } catch { /* plugin mai fatali */ }
 
   // Memoria attiva: impara fatti espliciti dal turno (best-effort, mai fatale).
   let learned = 0;

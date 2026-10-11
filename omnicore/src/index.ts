@@ -3,10 +3,12 @@
 //   --stream "…"   → turno IA con eventi NDJSON (token/tool/loop_end) su stdout
 //   --fuse   "…"   → pipeline legacy brain→hands→face
 //   --doctor       → verifica quale cervello risponde (api/local/euristica)
+//   --plugins <cmd> [arg] → gestione plugin (list, info, install, remove)
 //   (default) "…"  → route singola (debug)
 import { route } from "./router.ts";
 import { fuse } from "./pipeline.ts";
 import { llmDoctor } from "./mind/llm.ts";
+import { plugins } from "./modules/plugins.ts";
 import { memory } from "./faculties/memory.ts";
 import { code } from "./faculties/code.ts";
 import { channel } from "./faculties/channel.ts";
@@ -34,6 +36,30 @@ async function main() {
 
   if (doDoctor) {
     console.log(JSON.stringify(await llmDoctor(), null, 2));
+    return;
+  }
+
+  const plugIdx = raw.indexOf("--plugins");
+  if (plugIdx >= 0) {
+    const cmd = raw[plugIdx + 1] ?? "list";
+    const arg = raw[plugIdx + 2];
+    try {
+      if (cmd === "list") {
+        console.log(JSON.stringify(plugins.list().map((p) => ({ ...p.manifest, loaded: p.loaded })), null, 2));
+      } else if (cmd === "info" && arg) {
+        const p = plugins.list().find((x) => x.manifest.name === arg.toLowerCase());
+        if (!p) throw new Error(`plugin non installato: ${arg}`);
+        console.log(JSON.stringify(p.manifest, null, 2));
+      } else if (cmd === "install" && arg) {
+        console.log(JSON.stringify(await plugins.install(arg), null, 2));
+      } else if (cmd === "remove" && arg) {
+        console.log(JSON.stringify(plugins.remove(arg), null, 2));
+      } else {
+        console.log(JSON.stringify({ error: "uso: --plugins <list|info|install|remove> [nome|path|url]", dir: plugins.dir() }));
+      }
+    } catch (e) {
+      console.log(JSON.stringify({ error: String(e).slice(0, 250) }));
+    }
     return;
   }
 
