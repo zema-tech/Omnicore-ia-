@@ -117,6 +117,12 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "meeting.attach" ||
       name === "debug.break" ||
       name === "debug.vars" ||
+      name === "board.add" ||
+      name === "board.list" ||
+      name === "board.claim" ||
+      name === "board.done" ||
+      name === "board.handoff" ||
+      name === "board.status" ||
       name === "cookbook.scan" ||
       name === "cookbook.recommend" ||
       name.startsWith("todo.")

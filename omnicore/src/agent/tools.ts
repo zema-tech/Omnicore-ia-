@@ -27,6 +27,7 @@ import { email } from "../modules/email.ts";
 import { signal } from "../modules/signal.ts";
 import { stt } from "../modules/stt.ts";
 import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
+import { board } from "../modules/workboard.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -81,6 +82,12 @@ export type ToolName =
   | "debug.break"
   | "debug.go"
   | "debug.vars"
+  | "board.add"
+  | "board.list"
+  | "board.claim"
+  | "board.done"
+  | "board.handoff"
+  | "board.status"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -519,6 +526,53 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: "code(dap)", data: r.breakpoints }
           : { name: call.name, ok: false, via: "code(dap)", error: r.error ?? "breakpoint fallito" };
       }
+      case "board.add": {
+        try {
+          const t = board.add(String(args.title ?? ""), {
+            priority: typeof args.priority === "number" ? args.priority : undefined,
+            dependsOn: Array.isArray(args.dependsOn) ? args.dependsOn.map(String) : undefined,
+            payload: typeof args.payload === "string" ? args.payload : undefined,
+          });
+          return { name: call.name, ok: true, via: "board(native)", data: { id: t.id, title: t.title } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "board(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "board.list": {
+        return {
+          name: call.name, ok: true, via: "board(native)",
+          data: board.list(typeof args.status === "string" ? args.status : undefined).map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, owner: t.owner })),
+        };
+      }
+      case "board.claim": {
+        try {
+          const t = board.claim(String(args.owner ?? ""));
+          return t
+            ? { name: call.name, ok: true, via: "board(native)", data: t }
+            : { name: call.name, ok: false, via: "board(native)", error: "nessun task pronto (coda vuota o dipendenze aperte)" };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "board(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "board.done": {
+        try {
+          const t = board.done(String(args.id ?? ""), args.ok !== false, typeof args.result === "string" ? args.result : "");
+          return { name: call.name, ok: true, via: "board(native)", data: { id: t.id, status: t.status } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "board(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "board.handoff": {
+        try {
+          const t = board.handoff(String(args.id ?? ""), String(args.from ?? ""), String(args.to ?? ""), String(args.context ?? ""));
+          return { name: call.name, ok: true, via: "board(native)", data: { id: t.id, owner: t.owner, handoffs: t.handoffs.length } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "board(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "board.status": {
+        return { name: call.name, ok: true, via: "board(native)", data: board.status() };
+      }
       case "debug.go": {
         // Muove l'esecuzione del debuggee: conferma come l'attach.
         if (args.confirm !== true) {
@@ -948,6 +1002,12 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "debug.break", description: "Breakpoint {session, file, line}" },
   { name: "debug.go", description: "Avanza esecuzione {session, op} (conferma)" },
   { name: "debug.vars", description: "Variabili {session, ref}" },
+  { name: "board.add", description: "Accoda task {title, priority?, dependsOn?, payload?}" },
+  { name: "board.list", description: "Task in coda {status?}" },
+  { name: "board.claim", description: "Prendi prossimo task pronto {owner}" },
+  { name: "board.done", description: "Chiudi task {id, ok?, result?}" },
+  { name: "board.handoff", description: "Passa task a un agente {id, from, to, context?}" },
+  { name: "board.status", description: "Conteggi, attivi e bloccati" },
   { name: "whatsapp.send", description: "Invia WhatsApp {to, text} (conferma)" },
   { name: "email.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },
