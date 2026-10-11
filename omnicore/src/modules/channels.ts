@@ -10,7 +10,10 @@ import { slack } from "./slack.ts";
 import { whatsapp } from "./whatsapp.ts";
 import { signal } from "./signal.ts";
 import { email } from "./email.ts";
-export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack" | "email" | "signal";
+import { matrix } from "./matrix.ts";
+import { gchat } from "./gchat.ts";
+import { teams } from "./teams.ts";
+export type ChannelKind = "console" | "webhook" | "telegram" | "whatsapp" | "discord" | "slack" | "email" | "signal" | "matrix" | "gchat" | "teams";
 
 export interface ChannelDef {
   id: string;
@@ -42,6 +45,9 @@ export function listChannels(): ChannelDef[] {
   if (env("SLACK_BOT_TOKEN")) out.push({ id: "slack", kind: "slack" });
   if (env("SMTP_HOST") || env("IMAP_HOST")) out.push({ id: "email", kind: "email" });
   if (env("SIGNAL_NUMBER")) out.push({ id: "signal", kind: "signal" });
+  if (env("MATRIX_TOKEN") || env("MATRIX_USER")) out.push({ id: "matrix", kind: "matrix" });
+  if (env("GCHAT_WEBHOOK_URL")) out.push({ id: "gchat", kind: "gchat" });
+  if (env("TEAMS_CLIENT_ID")) out.push({ id: "teams", kind: "teams" });
   return out;
 }
 
@@ -55,6 +61,9 @@ export function channelStatus(): ChannelStatus[] {
     if (c.kind === "whatsapp") return { id: c.id, kind: c.kind, ok: true, detail: "business api configurata (invio whatsapp.send)" };
     if (c.kind === "email") return { id: c.id, kind: c.kind, ok: true, detail: "smtp/imap configurati (invio email.send, lettura email.read)" };
     if (c.kind === "signal") return { id: c.id, kind: c.kind, ok: true, detail: "signal-cli configurato (invio signal.send, lettura signal.poll)" };
+    if (c.kind === "matrix") return { id: c.id, kind: c.kind, ok: true, detail: "homeserver configurato (invio matrix.send, lettura matrix.sync)" };
+    if (c.kind === "gchat") return { id: c.id, kind: c.kind, ok: true, detail: "webhook configurato (invio gchat.send)" };
+    if (c.kind === "teams") return { id: c.id, kind: c.kind, ok: true, detail: "app azure configurata (invio teams.send)" };
     return { id: c.id, kind: c.kind, ok: false, detail: `${c.kind}: backend non collegato (serve token/adapter dedicato)` };
   });
 }
@@ -189,6 +198,33 @@ export async function channelSend(message: string, targets: string[] = []): Prom
         results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
         if (!r.ok) allOk = false;
       }
+      continue;
+    }
+    if (c.kind === "matrix") {
+      // target = room id (!...) + id "matrix" esplicito.
+      const ids = targets.filter((t) => t !== "matrix" && t.startsWith("!"));
+      if (!ids.length) {
+        allOk = false;
+        results.push(`${c.id}: serve room target (es. targets:["matrix","!abc:server"])`);
+        continue;
+      }
+      for (const id of ids) {
+        const r = await matrix.send(id, message);
+        results.push(r.ok ? `${c.id}:${id}: consegnato` : `${c.id}:${id}: fallito (${r.error})`);
+        if (!r.ok) allOk = false;
+      }
+      continue;
+    }
+    if (c.kind === "gchat") {
+      const r = await gchat.send(message);
+      results.push(r.ok ? `${c.id}: consegnato` : `${c.id}: fallito (${r.error})`);
+      if (!r.ok) allOk = false;
+      continue;
+    }
+    if (c.kind === "teams") {
+      const r = await teams.send(message);
+      results.push(r.ok ? `${c.id}: consegnato` : `${c.id}: fallito (${r.error})`);
+      if (!r.ok) allOk = false;
       continue;
     }
     allOk = false;

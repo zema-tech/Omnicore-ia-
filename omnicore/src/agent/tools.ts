@@ -26,6 +26,9 @@ import { whatsapp } from "../modules/whatsapp.ts";
 import { email } from "../modules/email.ts";
 import { signal } from "../modules/signal.ts";
 import { stt } from "../modules/stt.ts";
+import { matrix } from "../modules/matrix.ts";
+import { gchat } from "../modules/gchat.ts";
+import { teams } from "../modules/teams.ts";
 import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
 import { board } from "../modules/workboard.ts";
 import { tasks } from "../modules/tasks.ts";
@@ -82,6 +85,10 @@ export type ToolName =
   | "signal.send"
   | "signal.poll"
   | "meeting.attach"
+  | "matrix.send"
+  | "matrix.sync"
+  | "gchat.send"
+  | "teams.send"
   | "debug.attach"
   | "debug.break"
   | "debug.go"
@@ -804,6 +811,46 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: r.via, data: r.data }
           : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
       }
+      case "matrix.send": {
+        const room = String(args.room ?? args.target ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "matrix", needsConfirm: true, preview: `matrix.send ${room}: ${String(args.text ?? args.message ?? "").slice(0, 200)}` };
+        }
+        const r = await matrix.send(room, String(args.text ?? args.message ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "matrix.sync": {
+        const r = await matrix.sync({
+          since: typeof args.since === "string" ? args.since : undefined,
+          timeoutSec: typeof args.timeout === "number" ? args.timeout : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "sync fallita" };
+      }
+      case "gchat.send": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "gchat", needsConfirm: true, preview: `gchat.send: ${String(args.text ?? args.message ?? "").slice(0, 200)}` };
+        }
+        const r = await gchat.send(String(args.text ?? args.message ?? ""), typeof args.webhook === "string" ? args.webhook : undefined);
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "teams.send": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "teams", needsConfirm: true, preview: `teams.send: ${String(args.text ?? args.message ?? "").slice(0, 200)}` };
+        }
+        const r = await teams.send(String(args.text ?? args.message ?? ""), {
+          team: typeof args.team === "string" ? args.team : undefined,
+          channel: typeof args.channel === "string" ? args.channel : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
       case "todo.add": {
         try {
           return { name: call.name, ok: true, via: "todo", data: todos.add(String(args.text ?? "")) };
@@ -1195,6 +1242,10 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },
   { name: "signal.send", description: "Invia Signal {to, text} (conferma)" },
   { name: "signal.poll", description: "Leggi messaggi Signal {timeout?}" },
+  { name: "matrix.send", description: "Invia Matrix {room, text} (conferma)" },
+  { name: "matrix.sync", description: "Leggi Matrix {since?, timeout?}" },
+  { name: "gchat.send", description: "Invia Google Chat {text, webhook?} (conferma)" },
+  { name: "teams.send", description: "Invia Teams {text, team?, channel?} (conferma)" },
   { name: "todo.add", description: "Aggiungi passo {text}" },
   { name: "todo.list", description: "Elenca i passi" },
   { name: "todo.done", description: "Chiudi un passo {id}" },

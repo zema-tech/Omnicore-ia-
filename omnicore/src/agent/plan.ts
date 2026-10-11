@@ -65,6 +65,7 @@ gmail.list {}, gmail.send {to, subject, text} (conferma), gcal.list {}, gcal.cre
 spotify.search {query}, spotify.state {}, spotify.control {op} (conferma),
 whatsapp.send {to, text} (conferma), email.send {to, subject, text} (conferma), email.read {limit},
 signal.send {to, text} (conferma), signal.poll {timeout},
+matrix.send {room, text} (conferma), matrix.sync {timeout}, gchat.send {text} (conferma), teams.send {text} (conferma),
 channel.status {}, channel.announce {message, targets},
 telegram.me {}, telegram.poll {offset, timeout},
 discord.send {channel, text}, discord.listen {timeout}, slack.send {channel, text},
