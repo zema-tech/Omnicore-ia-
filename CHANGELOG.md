@@ -1,5 +1,21 @@
 # Changelog
 
+## Tappa 53 — 52 skill pack
+Da 32 a 52: onboarding, review, incidenti, migrazioni, costi, modelli,
+traduzioni, followup. Tutti validati da test + curator.
+
+## Tappa 52 — Announce verificato
+Test end-to-end: channel.announce consegna davvero a signal, discord e
+telegram (confermati). Nessun buco nel routing.
+
+## Tappa 51 — Catalogo plugin
+`plugins-catalog.json` con tier, `plugin.search/install`, esempi
+hello-world + vault-stats, `docs/plugins.md` completa.
+
+## Tappa 50 — Plugin manager + SDK
+Manifest, import dinamico, ctx con tool/hook/llm-senza-chiavi, hook
+`turn_end` nel loop, CLI `--plugins`, fiducia dichiarata (niente sandbox).
+
 ## Tappa 49 — Matrix, Google Chat, Teams
 Matrix send + sync long-poll, Google Chat via webhook, Teams via Graph
 (client-credentials). 11 backend in `channel.announce`. Ricezione Teams
