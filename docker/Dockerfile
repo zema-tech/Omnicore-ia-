@@ -8,8 +8,10 @@ RUN apt-get update \
 WORKDIR /app
 COPY . .
 
-WORKDIR /app/omnicore
+# Monorepo (workspaces): le dipendenze si installano dalla radice, dove sta package-lock.json.
 RUN npm ci
+
+WORKDIR /app/omnicore
 
 # Stato persistito fuori dal layer (monta un volume su /app/omnicore/data).
 VOLUME ["/app/omnicore/data"]

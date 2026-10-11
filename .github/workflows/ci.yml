@@ -16,11 +16,9 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: omnicore/package-lock.json
-      - working-directory: omnicore
-        run: npm ci
-      - working-directory: omnicore
-        run: npm run typecheck
-      - working-directory: omnicore
-        run: npm test
+          cache-dependency-path: package-lock.json
+      # Monorepo con workspaces: install, typecheck e test dalla radice.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
       - run: node --check omnicore/vscode-extension/extension.js
