@@ -64,7 +64,8 @@ I vendor restano **solo riferimento**: qui sotto cosa abbiamo imparato e cosa
 5. ✅ Skill precaricate, video FAL, interrupt, estensione VS Code, TUI ANSI
 6. ✅ GitHub reader, decisioni pesate, meeting live, memoria attiva, WhatsApp+Email
 7. ✅ 32 skill, Signal, STT, MCP server, debugger DAP
-8. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
+8. ✅ Workboard, Google+Spotify, long-running, collaborazione, Matrix/GChat/Teams
+9. Demone `tick()` nel server + polling Telegram→`runAgent`→risposta
 5. Subagent con sessione figlia vera + permessi ridotti
 6. Compaction/prune contesto + fork sessioni
 7. Deny-glob comandi + yolo per-sessione

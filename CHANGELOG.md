@@ -1,5 +1,26 @@
 # Changelog
 
+## Tappa 49 — Matrix, Google Chat, Teams
+Matrix send + sync long-poll, Google Chat via webhook, Teams via Graph
+(client-credentials). 11 backend in `channel.announce`. Ricezione Teams
+richiede endpoint bot (documentato).
+
+## Tappa 48 — Collaborazione
+Presence heartbeat con prune, share ACL (owner/editor/viewer) per sessioni,
+tool dedicati. Enforcement HTTP futuro (server mono-Bearer).
+
+## Tappa 47 — Long-running
+Task persistenti: schedule → slice con checkpoint → resume → finish/cancel.
+Esecuzione bounded, runAt onesto, niente demone (vedi cron).
+
+## Tappa 46 — Google + Spotify
+Gmail send/list, Calendar list/create, Spotify search/state/control via
+token utente. Scritture con conferma.
+
+## Tappa 45 — Workboard
+Coda persistente con priorità e dipendenze, claim atomico, handoff con
+contesto, monitoraggio attivi/bloccati.
+
 ## Tappa 44 — Debugger DAP
 Client DAP generico via stdio + `debug.attach/break/go/vars`. Provato
 contro adapter finto con framing reale. Esecuzione con conferma.
