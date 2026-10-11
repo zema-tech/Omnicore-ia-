@@ -40,6 +40,8 @@ const DESTRUCTIVE = new Set([
   "skills.compose",
   "agents.run",
   "agents.fanout",
+  "task.run",
+  "task.resume",
   "mcp.list",
   "mcp.call",
   "mcp.reload",
@@ -126,6 +128,11 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "board.done" ||
       name === "board.handoff" ||
       name === "board.status" ||
+      name === "task.schedule" ||
+      name === "task.list" ||
+      name === "task.status" ||
+      name === "task.finish" ||
+      name === "task.cancel" ||
       name === "gmail.list" ||
       name === "gcal.list" ||
       name === "spotify.search" ||

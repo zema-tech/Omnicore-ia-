@@ -28,6 +28,7 @@ import { signal } from "../modules/signal.ts";
 import { stt } from "../modules/stt.ts";
 import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
 import { board } from "../modules/workboard.ts";
+import { tasks } from "../modules/tasks.ts";
 import { google } from "../modules/google.ts";
 import { spotify } from "../modules/spotify.ts";
 import { cron } from "../modules/cron.ts";
@@ -90,6 +91,13 @@ export type ToolName =
   | "board.done"
   | "board.handoff"
   | "board.status"
+  | "task.schedule"
+  | "task.list"
+  | "task.status"
+  | "task.run"
+  | "task.resume"
+  | "task.finish"
+  | "task.cancel"
   | "gmail.list"
   | "gmail.send"
   | "gcal.list"
@@ -581,6 +589,60 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       }
       case "board.status": {
         return { name: call.name, ok: true, via: "board(native)", data: board.status() };
+      }
+      case "task.schedule": {
+        try {
+          const t = tasks.schedule(String(args.goal ?? ""), {
+            runAt: typeof args.runAt === "string" ? args.runAt : undefined,
+            note: typeof args.note === "string" ? args.note : undefined,
+          });
+          return { name: call.name, ok: true, via: "task(native)", data: { id: t.id, goal: t.goal } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "task(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "task.list": {
+        return {
+          name: call.name, ok: true, via: "task(native)",
+          data: tasks.list(typeof args.status === "string" ? args.status : undefined),
+        };
+      }
+      case "task.status": {
+        try {
+          return { name: call.name, ok: true, via: "task(native)", data: tasks.status(String(args.id ?? "")) };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "task(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "task.run":
+      case "task.resume": {
+        // Esegue codice: conferma una volta, dentro gira forzato.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "task", needsConfirm: true, preview: `task ${call.name === "task.resume" ? "resume" : "run"} ${args.id ?? ""}` };
+        }
+        const r = await tasks.slice(String(args.id ?? ""), {
+          workspace: (args.workspace as string | undefined) ?? ctx.directory,
+          budgetSteps: Number(args.budgetSteps ?? 8),
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: { slice: r.slice, summary: r.summary } }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "slice fallita" };
+      }
+      case "task.finish": {
+        try {
+          const t = tasks.finish(String(args.id ?? ""), args.ok !== false, typeof args.summary === "string" ? args.summary : "");
+          return { name: call.name, ok: true, via: "task(native)", data: { id: t.id, status: t.status } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "task(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "task.cancel": {
+        try {
+          const t = tasks.cancel(String(args.id ?? ""));
+          return { name: call.name, ok: true, via: "task(native)", data: { id: t.id, status: t.status } };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "task(native)", error: String(e).slice(0, 200) };
+        }
       }
       case "gmail.list": {
         const r = await google.gmailList({
@@ -1076,6 +1138,13 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "board.done", description: "Chiudi task {id, ok?, result?}" },
   { name: "board.handoff", description: "Passa task a un agente {id, from, to, context?}" },
   { name: "board.status", description: "Conteggi, attivi e bloccati" },
+  { name: "task.schedule", description: "Pianifica task persistente {goal, runAt?, note?}" },
+  { name: "task.list", description: "Task persistenti {status?}" },
+  { name: "task.status", description: "Dettaglio + checkpoint {id}" },
+  { name: "task.run", description: "Esegui una slice con checkpoint {id} (conferma)" },
+  { name: "task.resume", description: "Continua dal checkpoint {id} (conferma)" },
+  { name: "task.finish", description: "Chiudi task {id, ok?, summary?}" },
+  { name: "task.cancel", description: "Annulla task {id}" },
   { name: "gmail.list", description: "Ultime email {query?, limit?}" },
   { name: "gmail.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "gcal.list", description: "Prossimi eventi {limit?, days?}" },

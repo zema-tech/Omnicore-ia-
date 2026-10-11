@@ -59,6 +59,7 @@ meeting.start {title}, meeting.append {id, text}, meeting.status {id}, meeting.e
 meeting.attach {id, file} (trascrive audio),
 debug.attach {command} (conferma), debug.break {session, file, line}, debug.go {session, op} (conferma), debug.vars {session, ref},
 board.add {title}, board.claim {owner}, board.done {id}, board.handoff {id, from, to}, board.status {},
+task.schedule {goal}, task.run {id} (conferma), task.resume {id} (conferma), task.finish {id},
 gmail.list {}, gmail.send {to, subject, text} (conferma), gcal.list {}, gcal.create {summary, start} (conferma),
 spotify.search {query}, spotify.state {}, spotify.control {op} (conferma),
 whatsapp.send {to, text} (conferma), email.send {to, subject, text} (conferma), email.read {limit},
