@@ -133,6 +133,11 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "task.status" ||
       name === "task.finish" ||
       name === "task.cancel" ||
+      name === "presence.ping" ||
+      name === "presence.list" ||
+      name === "share.grant" ||
+      name === "share.check" ||
+      name === "share.revoke" ||
       name === "gmail.list" ||
       name === "gcal.list" ||
       name === "spotify.search" ||

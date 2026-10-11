@@ -29,6 +29,7 @@ import { stt } from "../modules/stt.ts";
 import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
 import { board } from "../modules/workboard.ts";
 import { tasks } from "../modules/tasks.ts";
+import { collab } from "../modules/collab.ts";
 import { google } from "../modules/google.ts";
 import { spotify } from "../modules/spotify.ts";
 import { cron } from "../modules/cron.ts";
@@ -98,6 +99,11 @@ export type ToolName =
   | "task.resume"
   | "task.finish"
   | "task.cancel"
+  | "presence.ping"
+  | "presence.list"
+  | "share.grant"
+  | "share.check"
+  | "share.revoke"
   | "gmail.list"
   | "gmail.send"
   | "gcal.list"
@@ -644,6 +650,33 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           return { name: call.name, ok: false, via: "task(native)", error: String(e).slice(0, 200) };
         }
       }
+      case "presence.ping": {
+        try {
+          return { name: call.name, ok: true, via: "collab(native)", data: collab.ping(String(args.user ?? ""), typeof args.doing === "string" ? args.doing : "") };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "collab(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "presence.list": {
+        return { name: call.name, ok: true, via: "collab(native)", data: collab.online() };
+      }
+      case "share.grant": {
+        try {
+          return { name: call.name, ok: true, via: "collab(native)", data: collab.grant(String(args.session ?? ""), String(args.user ?? ""), String(args.role ?? ""), typeof args.by === "string" ? args.by : "") };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "collab(native)", error: String(e).slice(0, 200) };
+        }
+      }
+      case "share.check": {
+        return { name: call.name, ok: true, via: "collab(native)", data: collab.check(String(args.session ?? ""), String(args.user ?? "")) };
+      }
+      case "share.revoke": {
+        try {
+          return { name: call.name, ok: true, via: "collab(native)", data: collab.revoke(String(args.session ?? ""), String(args.user ?? ""), String(args.by ?? "")) };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "collab(native)", error: String(e).slice(0, 200) };
+        }
+      }
       case "gmail.list": {
         const r = await google.gmailList({
           query: typeof args.query === "string" ? args.query : undefined,
@@ -1145,6 +1178,11 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "task.resume", description: "Continua dal checkpoint {id} (conferma)" },
   { name: "task.finish", description: "Chiudi task {id, ok?, summary?}" },
   { name: "task.cancel", description: "Annulla task {id}" },
+  { name: "presence.ping", description: "Heartbeat presenza {user, doing?}" },
+  { name: "presence.list", description: "Chi è online" },
+  { name: "share.grant", description: "Ruolo su sessione {session, user, role, by?}" },
+  { name: "share.check", description: "Ruolo utente {session, user}" },
+  { name: "share.revoke", description: "Revoca accesso {session, user, by}" },
   { name: "gmail.list", description: "Ultime email {query?, limit?}" },
   { name: "gmail.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "gcal.list", description: "Prossimi eventi {limit?, days?}" },
