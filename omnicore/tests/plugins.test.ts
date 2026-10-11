@@ -78,6 +78,18 @@ describe("plugin manager", () => {
     assert.deepEqual(plugins.remove("copiato"), { removed: "copiato" });
     assert.throws(() => plugins.remove("copiato"));
   });
+  it("catalogo: search + install by name", async () => {
+    const found = plugins.search("saluta");
+    assert.ok(found.some((e) => e.name === "hello-world"));
+    assert.ok(found.every((e) => e.tier === "official" || e.tier === "community"));
+    const ins = await plugins.installByName("hello-world");
+    assert.equal(ins.name, "hello-world");
+    const lp = await plugins.load(ins.dir);
+    assert.ok(lp.tools.some((t) => t.name === "saluta"));
+    const c = await plugins.call("hello-world", "saluta", { nome: "cat" });
+    assert.equal(c.data, "ciao cat (chiamata #1)");
+    await assert.rejects(plugins.installByName("fantasma-xyz"));
+  });
 });
 
 describe("plugin nei tool e CLI", () => {

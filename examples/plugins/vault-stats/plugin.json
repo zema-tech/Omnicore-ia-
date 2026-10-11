@@ -1,0 +1,8 @@
+{
+  "name": "vault-stats",
+  "version": "1.0.0",
+  "author": "community",
+  "description": "Statistiche del vault: file, parole, link",
+  "entry": "index.js",
+  "permissions": ["fs-read"]
+}

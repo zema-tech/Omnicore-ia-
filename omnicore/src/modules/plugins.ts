@@ -7,10 +7,12 @@
 // sandbox VM: dichiarata onestamente, vedi docs/STUDIO.md).
 // Zero dipendenze. Mai throw critico (throw solo su input invalido).
 import { readdirSync, readFileSync, existsSync, statSync, mkdirSync, rmSync, cpSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { llmChat } from "../mind/llm.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 export interface PluginManifest {
   name: string;
@@ -250,9 +252,73 @@ export function removePlugin(name: string): { removed: string } {
   return { removed: clean };
 }
 
+export interface CatalogEntry {
+  name: string;
+  description: string;
+  tier: "official" | "community";
+  version: string;
+  source: string;
+}
+
+/** Catalogo curato (default omnicore/plugins-catalog.json). Mai throw. */
+export function catalogFile(): string {
+  return process.env["OMNICORE_CATALOG_FILE"] ?? join(HERE, "..", "..", "plugins-catalog.json");
+}
+
+export function readCatalog(): CatalogEntry[] {
+  try {
+    const j = JSON.parse(readFileSync(catalogFile(), "utf8"));
+    if (!Array.isArray(j)) return [];
+    return j
+      .filter((e: any) => e && validName(String(e.name ?? "")))
+      .map((e: any) => ({
+        name: String(e.name).toLowerCase(),
+        description: String(e.description ?? "").slice(0, 200),
+        tier: e.tier === "community" ? "community" : "official",
+        version: String(e.version ?? "?"),
+        source: String(e.source ?? ""),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Cerca nel catalogo per parole (nome+descrizione). Mai throw. */
+export function searchCatalog(query: string): CatalogEntry[] {
+  try {
+    const words = String(query ?? "").toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    const all = readCatalog();
+    if (!words.length) return all;
+    return all.filter((e) => {
+      const hay = `${e.name} ${e.description}`.toLowerCase();
+      return words.some((w) => hay.includes(w));
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Installa dal catalogo per nome (source assoluto, cwd o risalendo al repo). */
+export async function installByName(name: string): Promise<{ name: string; dir: string }> {
+  const clean = String(name ?? "").trim().toLowerCase();
+  const found = readCatalog().find((e) => e.name === clean);
+  if (!found || !found.source) throw new Error(`non in catalogo: ${name} (plugin.search per esplorare)`);
+  const src = found.source;
+  const candidates = [src, join(process.cwd(), src)];
+  let d = process.cwd();
+  for (let i = 0; i < 6; i++) {
+    d = join(d, "..");
+    candidates.push(join(d, src));
+  }
+  const abs = candidates.map((c) => resolve(c)).find((c) => existsSync(c) && statSync(c).isDirectory());
+  if (!abs) throw new Error(`sorgente catalogo non trovata: ${src} (cwd ${process.cwd()})`);
+  return installPlugin(abs);
+}
+
 export const plugins = {
   dir: pluginsDir, manifest: readManifest, list: listPlugins,
   load: loadPlugin, unload: unloadPlugin, reload: reloadPlugins,
   emit: emitHook, call: callPluginTool, tools: pluginTools,
   install: installPlugin, remove: removePlugin,
+  catalog: readCatalog, search: searchCatalog, installByName,
 };

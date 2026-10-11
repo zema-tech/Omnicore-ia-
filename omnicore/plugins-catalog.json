@@ -1,0 +1,16 @@
+[
+  {
+    "name": "hello-world",
+    "description": "Plugin di esempio: saluta e conta le chiamate",
+    "tier": "official",
+    "version": "1.0.0",
+    "source": "examples/plugins/hello-world"
+  },
+  {
+    "name": "vault-stats",
+    "description": "Statistiche del vault: file, parole, link",
+    "tier": "community",
+    "version": "1.0.0",
+    "source": "examples/plugins/vault-stats"
+  }
+]

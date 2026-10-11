@@ -51,11 +51,14 @@ async function main() {
         if (!p) throw new Error(`plugin non installato: ${arg}`);
         console.log(JSON.stringify(p.manifest, null, 2));
       } else if (cmd === "install" && arg) {
-        console.log(JSON.stringify(await plugins.install(arg), null, 2));
+        const byName = !arg.includes("/") && !arg.includes("\\");
+        console.log(JSON.stringify(byName ? await plugins.installByName(arg) : await plugins.install(arg), null, 2));
+      } else if (cmd === "search") {
+        console.log(JSON.stringify(plugins.search(arg ?? ""), null, 2));
       } else if (cmd === "remove" && arg) {
         console.log(JSON.stringify(plugins.remove(arg), null, 2));
       } else {
-        console.log(JSON.stringify({ error: "uso: --plugins <list|info|install|remove> [nome|path|url]", dir: plugins.dir() }));
+        console.log(JSON.stringify({ error: "uso: --plugins <list|info|install|remove|search> [nome|path|url]", dir: plugins.dir() }));
       }
     } catch (e) {
       console.log(JSON.stringify({ error: String(e).slice(0, 250) }));

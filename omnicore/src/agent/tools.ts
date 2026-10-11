@@ -99,6 +99,8 @@ export type ToolName =
   | "plugin.load"
   | "plugin.unload"
   | "plugin.call"
+  | "plugin.search"
+  | "plugin.install"
   | "board.add"
   | "board.list"
   | "board.claim"
@@ -798,6 +800,23 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: "plugin(native)", data: { unloaded: args.name } }
           : { name: call.name, ok: false, via: "plugin(native)", error: `plugin non caricato: ${args.name}` };
       }
+      case "plugin.search": {
+        return { name: call.name, ok: true, via: "plugin(native)", data: plugins.search(String(args.query ?? "")) };
+      }
+      case "plugin.install": {
+        // Scrive su disco (ed esegue codice al load): conferma.
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "plugin", needsConfirm: true, preview: `plugin.install ${args.name ?? args.source ?? ""} (codice di terzi)` };
+        }
+        try {
+          const src = String(args.source ?? args.name ?? "");
+          const byName = !src.includes("/") && !src.includes("\\") && !src.includes(".");
+          const r = byName ? await plugins.installByName(src) : await plugins.install(src);
+          return { name: call.name, ok: true, via: "plugin(native)", data: r };
+        } catch (e) {
+          return { name: call.name, ok: false, via: "plugin(native)", error: String(e).slice(0, 250) };
+        }
+      }
       case "plugin.call": {
         // Delega a codice plugin: conferma (l'host non sa cosa fa dentro).
         if (args.confirm !== true) {
@@ -1261,6 +1280,8 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "plugin.info", description: "Dettagli plugin {name}" },
   { name: "plugin.load", description: "Carica plugin {name|path} (conferma, esegue codice)" },
   { name: "plugin.unload", description: "Scarica plugin {name}" },
+  { name: "plugin.search", description: "Cerca nel catalogo {query?}" },
+  { name: "plugin.install", description: "Installa plugin {name|source} (conferma)" },
   { name: "plugin.call", description: "Chiama tool plugin {plugin, tool, args} (conferma)" },
   { name: "board.add", description: "Accoda task {title, priority?, dependsOn?, payload?}" },
   { name: "board.list", description: "Task in coda {status?}" },

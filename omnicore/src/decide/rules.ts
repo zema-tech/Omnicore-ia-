@@ -55,6 +55,7 @@ const DESTRUCTIVE = new Set([
   "debug.go",
   "plugin.load",
   "plugin.call",
+  "plugin.install",
   "world.exec",
 ]);
 
@@ -131,6 +132,7 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "plugin.list" ||
       name === "plugin.info" ||
       name === "plugin.unload" ||
+      name === "plugin.search" ||
       name === "board.add" ||
       name === "board.list" ||
       name === "board.claim" ||

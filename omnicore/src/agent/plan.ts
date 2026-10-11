@@ -59,6 +59,7 @@ meeting.start {title}, meeting.append {id, text}, meeting.status {id}, meeting.e
 meeting.attach {id, file} (trascrive audio),
 debug.attach {command} (conferma), debug.break {session, file, line}, debug.go {session, op} (conferma), debug.vars {session, ref},
 plugin.list {}, plugin.info {name}, plugin.load {name} (conferma), plugin.call {plugin, tool, args} (conferma),
+plugin.search {query}, plugin.install {name} (conferma),
 board.add {title}, board.claim {owner}, board.done {id}, board.handoff {id, from, to}, board.status {},
 task.schedule {goal}, task.run {id} (conferma), task.resume {id} (conferma), task.finish {id},
 presence.ping {user}, presence.list {}, share.grant {session, user, role}, share.check {session, user},
