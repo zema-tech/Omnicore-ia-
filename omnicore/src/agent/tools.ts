@@ -28,6 +28,8 @@ import { signal } from "../modules/signal.ts";
 import { stt } from "../modules/stt.ts";
 import { indexSymbols, findDefinition, findReferences, lsp, dap } from "../../../packages/code/src/index.ts";
 import { board } from "../modules/workboard.ts";
+import { google } from "../modules/google.ts";
+import { spotify } from "../modules/spotify.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
 import { permissions } from "../modules/permissions.ts";
@@ -88,6 +90,13 @@ export type ToolName =
   | "board.done"
   | "board.handoff"
   | "board.status"
+  | "gmail.list"
+  | "gmail.send"
+  | "gcal.list"
+  | "gcal.create"
+  | "spotify.search"
+  | "spotify.state"
+  | "spotify.control"
   | "todo.add"
   | "todo.list"
   | "todo.done"
@@ -573,6 +582,65 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
       case "board.status": {
         return { name: call.name, ok: true, via: "board(native)", data: board.status() };
       }
+      case "gmail.list": {
+        const r = await google.gmailList({
+          query: typeof args.query === "string" ? args.query : undefined,
+          limit: typeof args.limit === "number" ? args.limit : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
+      }
+      case "gmail.send": {
+        const to = String(args.to ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "google", needsConfirm: true, preview: `gmail.send ${to}: ${String(args.subject ?? "").slice(0, 120)}` };
+        }
+        const r = await google.gmailSend(to, String(args.subject ?? ""), String(args.text ?? args.body ?? ""));
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "invio fallito" };
+      }
+      case "gcal.list": {
+        const r = await google.gcalList({
+          limit: typeof args.limit === "number" ? args.limit : undefined,
+          days: typeof args.days === "number" ? args.days : undefined,
+        });
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "lettura fallita" };
+      }
+      case "gcal.create": {
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "google", needsConfirm: true, preview: `gcal.create ${String(args.summary ?? "").slice(0, 120)} @ ${String(args.start ?? "")}` };
+        }
+        const r = await google.gcalCreate(String(args.summary ?? ""), String(args.start ?? ""), typeof args.end === "string" ? args.end : "");
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "creazione fallita" };
+      }
+      case "spotify.search": {
+        const r = await spotify.search(String(args.query ?? ""), typeof args.limit === "number" ? args.limit : 5);
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "ricerca fallita" };
+      }
+      case "spotify.state": {
+        const r = await spotify.state();
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "stato fallito" };
+      }
+      case "spotify.control": {
+        const op = String(args.op ?? "");
+        if (args.confirm !== true) {
+          return { name: call.name, ok: false, via: "spotify", needsConfirm: true, preview: `spotify.control ${op} (sui tuoi speaker)` };
+        }
+        const r = await spotify.control(op);
+        return r.ok
+          ? { name: call.name, ok: true, via: r.via, data: r.data }
+          : { name: call.name, ok: false, via: r.via, error: r.error ?? "comando fallito" };
+      }
       case "debug.go": {
         // Muove l'esecuzione del debuggee: conferma come l'attach.
         if (args.confirm !== true) {
@@ -1008,6 +1076,13 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "board.done", description: "Chiudi task {id, ok?, result?}" },
   { name: "board.handoff", description: "Passa task a un agente {id, from, to, context?}" },
   { name: "board.status", description: "Conteggi, attivi e bloccati" },
+  { name: "gmail.list", description: "Ultime email {query?, limit?}" },
+  { name: "gmail.send", description: "Invia email {to, subject, text} (conferma)" },
+  { name: "gcal.list", description: "Prossimi eventi {limit?, days?}" },
+  { name: "gcal.create", description: "Crea evento {summary, start, end?} (conferma)" },
+  { name: "spotify.search", description: "Cerca brani {query, limit?}" },
+  { name: "spotify.state", description: "Brano in riproduzione" },
+  { name: "spotify.control", description: "Controlla player {op: play|pause|next} (conferma)" },
   { name: "whatsapp.send", description: "Invia WhatsApp {to, text} (conferma)" },
   { name: "email.send", description: "Invia email {to, subject, text} (conferma)" },
   { name: "email.read", description: "Leggi email recenti {limit?, unseen?, mailbox?}" },

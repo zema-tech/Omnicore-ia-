@@ -32,6 +32,9 @@ const DESTRUCTIVE = new Set([
   "whatsapp.send",
   "email.send",
   "signal.send",
+  "gmail.send",
+  "gcal.create",
+  "spotify.control",
   "skills.create",
   "skills.prune",
   "skills.compose",
@@ -123,6 +126,10 @@ export function rankLocal(candidates: string[]): RankedCandidate[] {
       name === "board.done" ||
       name === "board.handoff" ||
       name === "board.status" ||
+      name === "gmail.list" ||
+      name === "gcal.list" ||
+      name === "spotify.search" ||
+      name === "spotify.state" ||
       name === "cookbook.scan" ||
       name === "cookbook.recommend" ||
       name.startsWith("todo.")
