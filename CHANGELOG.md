@@ -1,5 +1,20 @@
 # Changelog
 
+## Tappa 55 — code.task LLM multi-step
+Con `OMNICORE_LLM_*` attivo il modello propone step JSON
+(`list/read/write/edit/shell/grep/glob/done`) eseguiti in workspace jail
+fino a `done` o `budgetSteps` (`OMNICORE_CODE_BUDGET_STEPS`, default 8).
+Offline o in fail resta l'euristica (mai throw). Ritorno invariato più
+`timeline`. Test con mock LLM (`code_llm.test.ts`).
+
+## Tappa 54 — UI React stile Grok
+Nuova app `apps/web` (React + TypeScript + Vite): landing “Cosa
+esploriamo?”, card input flottante, chat a colonna unica con stream token,
+timeline tool collassabile, pannello stato (doctor + budget, mai segreti),
+dark mode opzionale, Bearer in settings. `npm run web` (proxy /api),
+`npm run web-build` + `server.py` serve `dist/` con fallback legacy.
+Brand solo Omnicore. CLI/TUI/API invariate.
+
 ## Tappa 53 — 52 skill pack
 Da 32 a 52: onboarding, review, incidenti, migrazioni, costi, modelli,
 traduzioni, followup. Tutti validati da test + curator.

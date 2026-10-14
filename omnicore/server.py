@@ -47,6 +47,20 @@ API_TOKEN = os.environ.get("OMNICORE_API_TOKEN", "")
 
 DATA = HERE / "data"
 SESSIONS_FILE = DATA / "sessions.json"
+# Tappa 54 — build statica React (apps/web/dist) servita in produzione,
+# fallback alla dashboard legacy se non ancora compilata.
+WEB_DIST = (HERE / ".." / "apps" / "web" / "dist").resolve()
+_WEB_MIME = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+}
 _lock = threading.Lock()
 # Turni in corso (streaming): session_id -> Popen, per /api/chat/abort.
 _RUNNING: dict = {}
@@ -166,6 +180,50 @@ def _trace_summary(res: dict) -> str:
     return " | ".join(parts) or "nessun tool"
 
 
+def _serve_file(path, mime: str, handler) -> None:
+    try:
+        page = Path(path).read_bytes()
+    except OSError:
+        handler._json({"error": "not found"}, 404)
+        return
+    handler.send_response(200)
+    handler.send_header("Content-Type", mime)
+    handler.send_header("Content-Length", str(len(page)))
+    handler.end_headers()
+    handler.wfile.write(page)
+
+
+def _serve_web_or_legacy(handler, rel: str) -> bool:
+    """Serve apps/web/dist in produzione (True) o False se non compilata."""
+    if rel in ("", "/"):
+        idx = WEB_DIST / "index.html"
+        if idx.is_file():
+            _serve_file(idx, "text/html; charset=utf-8", handler)
+            return True
+        _serve_file(HERE / "dashboard.html", "text/html; charset=utf-8", handler)
+        return True
+    # Solo asset statici della build (niente traversal fuori dist).
+    if rel.startswith("/assets/") or rel in ("/vite.svg", "/favicon.ico"):
+        target = (WEB_DIST / rel.lstrip("/")).resolve()
+        try:
+            target.relative_to(WEB_DIST)
+        except ValueError:
+            handler._json({"error": "not found"}, 404)
+            return True
+        if target.is_file():
+            import mimetypes
+            mime = _WEB_MIME.get(target.suffix.lower()) or mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+            _serve_file(target, mime, handler)
+            return True
+    return False
+    parts = []
+    for t in res.get("trace", []):
+        if t.get("name") == "respond":
+            continue
+        parts.append(f"{t.get('name')}:{'ok' if t.get('ok') else 'ko'}")
+    return " | ".join(parts) or "nessun tool"
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "Omnicore/0.2"
 
@@ -213,12 +271,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
-            page = (HERE / "dashboard.html").read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(page)))
-            self.end_headers()
-            self.wfile.write(page)
+            # Tappa 54: React build se presente, altrimenti dashboard legacy.
+            if _serve_web_or_legacy(self, "/"):
+                return
+            return
+        if _serve_web_or_legacy(self, parsed.path):
             return
         if parsed.path == "/api/health":
             self._json({"ok": True, "service": "omnicore"})
