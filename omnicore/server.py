@@ -2,15 +2,17 @@
 """Omnicore server — guscio HTTP sopra l'UNICO loop agente (TypeScript).
 
 Uso:  python3 server.py [--port 8100]      (da omnicore/)
-Poi:  http://127.0.0.1:8100               (dashboard)
-       POST /api/chat   {text, session_id?} -> agent loop TS + log in sessione unica
-       POST /api/chat/stream {text}  -> SSE live (token/tool_end/loop_end/result)
-       POST /api/chat/abort {session_id} -> interrompe il turno in corso
-      POST /api/route  {text}              -> {intent, handler} (solo classifica, non esegue)
-      POST /api/fuse   {text}              -> alias legacy di /api/chat (stesso loop TS)
-      POST /api/omni   {source, text}      -> esegue OmniLang (DSL separata)
-      GET  /api/sessions                   -> elenco sessioni uniche
-      GET  /api/session?id=...             -> dettaglio sessione
+Poi:  http://127.0.0.1:8100               (dashboard React o legacy)
+        POST /api/chat   {text, session_id?} -> agent loop TS + log in sessione unica
+        POST /api/chat/stream {text}  -> SSE live (token/tool_end/loop_end/result)
+        POST /api/chat/abort {session_id} -> interrompe il turno in corso
+       POST /api/route  {text}              -> {intent, handler} (solo classifica, non esegue)
+       POST /api/fuse   {text}              -> alias legacy di /api/chat (stesso loop TS)
+       POST /api/omni   {source, text}      -> esegue OmniLang (DSL separata)
+       GET  /api/sessions                   -> elenco sessioni uniche
+       GET  /api/session?id=...             -> dettaglio sessione
+       GET  /api/skills                     -> catalogo skill pack (niente segreti)
+       GET  /api/channels                   -> stato canali (niente token)
 
 Questo file NON pensa: ogni turno e delegato a
 `node src/index.ts --agent` (core TypeScript, unico loop).
@@ -137,6 +139,18 @@ def _node_json(flag: str, timeout: int = 60) -> dict:
 
 def _doctor() -> dict:
     return _node_json("--doctor")
+
+
+def _skills() -> list:
+    """Elenco skill pack (nome/descrizione/path, mai istruzioni intere)."""
+    r = _node_json("--skills")
+    return r if isinstance(r, list) else []
+
+
+def _channels() -> list:
+    """Stato canali (id/kind/ok/detail, mai token)."""
+    r = _node_json("--channels")
+    return r if isinstance(r, list) else []
 
 
 def _status() -> dict:
@@ -286,6 +300,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/doctor":
             self._json(_doctor())
+            return
+        if parsed.path == "/api/skills":
+            # Catalogo skill pack: niente segreti, niente istruzioni intere.
+            self._json(_skills())
+            return
+        if parsed.path == "/api/channels":
+            # Stato canali: id/kind/ok/detail, mai token.
+            self._json(_channels())
             return
         if parsed.path == "/api/sessions":
             with _lock:

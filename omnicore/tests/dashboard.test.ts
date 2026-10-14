@@ -60,6 +60,23 @@ describe("dashboard server", () => {
     const j = (await r.json()) as any;
     assert.ok(["api", "local", "euristica"].includes(j.active));
   });
+  it("skills: catalogo pack, niente istruzioni intere", async () => {
+    const r = await fetch(`${BASE}/api/skills`, { headers: HEADERS });
+    const j = (await r.json()) as any;
+    assert.ok(Array.isArray(j));
+    for (const s of j) {
+      assert.ok(typeof s.name === "string");
+      assert.ok(!("instructions" in s), "istruzioni intere non esposte");
+    }
+  });
+  it("channels: stato senza token", async () => {
+    const r = await fetch(`${BASE}/api/channels`, { headers: HEADERS });
+    const j = (await r.json()) as any;
+    assert.ok(Array.isArray(j));
+    assert.ok(j.some((c: any) => c.id === "console"));
+    const raw = JSON.stringify(j).toLowerCase();
+    assert.ok(!raw.includes("token=") && !raw.includes("bearer"));
+  });
   it("stream SSE: eventi + result + sessione loggata", { timeout: 150000 }, async () => {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 140000);

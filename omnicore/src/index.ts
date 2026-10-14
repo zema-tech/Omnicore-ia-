@@ -3,6 +3,8 @@
 //   --stream "…"   → turno IA con eventi NDJSON (token/tool/loop_end) su stdout
 //   --fuse   "…"   → pipeline legacy brain→hands→face
 //   --doctor       → verifica quale cervello risponde (api/local/euristica)
+//   --skills       → elenco skill pack (JSON, per la dashboard)
+//   --channels     → stato canali (JSON, per la dashboard)
 //   --plugins <cmd> [arg] → gestione plugin (list, info, install, remove)
 //   (default) "…"  → route singola (debug)
 import { route } from "./router.ts";
@@ -36,6 +38,34 @@ async function main() {
 
   if (doDoctor) {
     console.log(JSON.stringify(await llmDoctor(), null, 2));
+    return;
+  }
+
+  if (raw.includes("--skills")) {
+    const { listSkills } = await import("./modules/skills.ts");
+    try {
+      console.log(
+        JSON.stringify(
+          listSkills().map((s) => ({
+            name: s.name,
+            description: s.description,
+            path: s.path,
+          })),
+        ),
+      );
+    } catch (e) {
+      console.log(JSON.stringify({ error: String(e).slice(0, 250) }));
+    }
+    return;
+  }
+
+  if (raw.includes("--channels")) {
+    const { channelStatus } = await import("./modules/channels.ts");
+    try {
+      console.log(JSON.stringify(channelStatus()));
+    } catch (e) {
+      console.log(JSON.stringify({ error: String(e).slice(0, 250) }));
+    }
     return;
   }
 

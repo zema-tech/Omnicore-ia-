@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Omnicore dashboard — token di tema propri (dark teal di default).
+   Pattern studiato dalla Hermes Web Dashboard, palette e nomi originali. */
+
+:root,
+[data-theme="dark"] {
+  --bg: #07211f;
+  --bg-soft: #0a2a28;
+  --panel: #0d332f;
+  --panel-2: #103d38;
+  --line: #1c4f49;
+  --txt: #f2ede1;
+  --dim: #93b3ae;
+  --acc: #2dd4bf;
+  --acc-dim: rgba(45, 212, 191, 0.14);
+  --user: #16403c;
+  --ok: #34d399;
+  --ko: #f87171;
+  --warn: #fbbf24;
+  --shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+  --radius: 0.75rem;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f4f1ea;
+  --bg-soft: #ece7da;
+  --panel: #ffffff;
+  --panel-2: #f7f4ec;
+  --line: #ddd5c3;
+  --txt: #101815;
+  --dim: #6b7a76;
+  --acc: #0d7c6c;
+  --acc-dim: rgba(13, 124, 108, 0.1);
+  --user: #e3ece9;
+  --ok: #047857;
+  --ko: #b91c1c;
+  --warn: #b45309;
+  --shadow: 0 8px 28px rgba(16, 24, 21, 0.1);
+  --radius: 0.75rem;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--txt);
+  font: 15px/1.55 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+code,
+kbd,
+pre,
+.mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+}
+
+/* Scrollbar sottile in palette */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+input,
+textarea,
+select {
+  color: var(--txt);
+}

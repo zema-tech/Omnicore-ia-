@@ -7,13 +7,17 @@ fino a `done` o `budgetSteps` (`OMNICORE_CODE_BUDGET_STEPS`, default 8).
 Offline o in fail resta l'euristica (mai throw). Ritorno invariato più
 `timeline`. Test con mock LLM (`code_llm.test.ts`).
 
-## Tappa 54 — UI React stile Grok
-Nuova app `apps/web` (React + TypeScript + Vite): landing “Cosa
-esploriamo?”, card input flottante, chat a colonna unica con stream token,
-timeline tool collassabile, pannello stato (doctor + budget, mai segreti),
-dark mode opzionale, Bearer in settings. `npm run web` (proxy /api),
-`npm run web-build` + `server.py` serve `dist/` con fallback legacy.
-Brand solo Omnicore. CLI/TUI/API invariate.
+## Tappa 54 — Dashboard React stile Hermes
+Nuova dashboard `apps/web` (React + TS + Tailwind, pattern studiato da
+`vendors/hermes/web` con palette/codice originali, brand solo Omnicore):
+shell con sidebar (Chat, Sessioni, Stato, Skill, Canali, Impostazioni),
+chat SSE `/api/chat/stream` con card tool + interrupt, stato
+(`doctor` + budget, mai segreti), skill da `/api/skills`, canali da
+`/api/channels`, settings con Bearer localStorage, tema dark teal + light.
+`npm run web` (proxy /api), `npm run web-build` + `server.py` serve
+`dist/` con fallback legacy. Backend esteso senza rotture: flag
+`--skills`/`--channels`, endpoint `/api/skills` e `/api/channels`.
+CLI/TUI/MCP intatti.
 
 ## Tappa 53 — 52 skill pack
 Da 32 a 52: onboarding, review, incidenti, migrazioni, costi, modelli,

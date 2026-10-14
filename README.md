@@ -65,17 +65,20 @@ console.log(r.summary, r.filesTouched);
 Path felice: `read` / `write` / `list` / `shell` in jail sul workspace.
 OpenCode resta solo boost opzionale nel runtime `omnicore/`.
 
-## Web app (React)
+## Dashboard web (React)
 
 ```bash
 cd omnicore && npm run serve   # runtime http://127.0.0.1:8100
 npm run web                    # dev Vite http://127.0.0.1:5173 (proxy /api)
 ```
 
-Landing “Cosa esploriamo?”, chat live su `POST /api/chat/stream` (SSE),
-timeline tool collassabile, stato cervello/budget, Bearer in settings
-(solo `localStorage`). Produzione: `npm run web-build`, poi `npm run serve`
-serve `apps/web/dist` con fallback alla dashboard legacy.
+Shell con sidebar (Chat, Sessioni, Stato, Skill, Canali, Impostazioni),
+pattern studiato dalla Hermes Web Dashboard con palette e codice
+originali Omnicore (brand solo Omnicore, tema dark teal + light).
+Chat live su `POST /api/chat/stream` (SSE: token + card tool), interrupt,
+stato cervello/budget, catalogo skill (52 pack), stato canali, Bearer in
+settings (solo `localStorage`). Produzione: `npm run web-build`, poi
+`npm run serve` serve `apps/web/dist` con fallback alla dashboard legacy.
 
 ## Code agent LLM (opzionale)
 

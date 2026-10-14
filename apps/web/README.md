@@ -1,8 +1,19 @@
-# @omnicore/web — chat Omnicore (React + Vite)
+# @omnicore/web — dashboard Omnicore (React + Vite + Tailwind)
 
-Layout ispirato a grok.com (solo pattern UX, brand solo Omnicore):
-landing centrata “Cosa esploriamo?”, card input flottante, chat a colonna
-unica, timeline tool collassabile, dark mode opzionale (default light).
+Pattern UX studiato dalla Hermes Web Dashboard (`vendors/hermes/web`,
+solo struttura: shell con sidebar, pagine, streaming + card tool, temi),
+con palette, nomi e codice originali Omnicore.
+
+## Pagine
+
+- **Chat** — SSE `POST /api/chat/stream` (token live + card tool
+  `tool_start/tool_end`), pannello sessioni, interrupt, composer con
+  supporto `confermo:`
+- **Sessioni** — elenco + riuso in chat (storico unico `data/sessions.json`)
+- **Stato** — `/api/doctor` + `/api/status` (cervello, budget, mai segreti)
+- **Skill** — `/api/skills` (52 pack da `omnicore/skills/`, con filtro)
+- **Canali** — `/api/channels` (stato backend, mai token)
+- **Impostazioni** — Bearer in `localStorage`, base URL backend opzionale
 
 ## Sviluppo
 
@@ -10,26 +21,20 @@ unica, timeline tool collassabile, dark mode opzionale (default light).
 # terminale 1 — runtime Omnicore (default http://127.0.0.1:8100)
 cd omnicore && npm run serve
 
-# terminale 2 — web dev (proxy /api verso il runtime)
+# terminale 2 — dashboard dev (proxy /api verso il runtime)
 npm run web
-# oppure: npm run dev --workspace @omnicore/web
 # apri http://127.0.0.1:5173
 ```
 
-Override target proxy: `OMNICORE_API_URL=http://127.0.0.1:8100 npm run web`.
+Prima volta: `npm install --workspace @omnicore/web`.
+Override proxy: `OMNICORE_API_URL=http://127.0.0.1:8100 npm run web`.
 
 ## Produzione
 
 ```bash
-npm run build --workspace @omnicore/web   # genera apps/web/dist
-cd omnicore && npm run serve              # server.py serve dist/ se presente
+npm run web-build     # genera apps/web/dist (gitignored)
+cd omnicore && npm run serve   # serve dist/ con fallback a dashboard.html
 ```
 
-Il server esistente (`omnicore/server.py`) serve `apps/web/dist` in
-produzione con fallback a `dashboard.html` (CLI/TUI/API invariate).
-
-## Note
-
-- Auth Bearer salvata solo in `localStorage` (`omnicore_token`), campo in ⚙.
-- SSE su `POST /api/chat/stream`, stesso protocollo di `dashboard.html`.
-- Stato cervello/budget da `/api/doctor` + `/api/status` (mai segreti).
+Router in hash (`#/status`, …): niente 404 al refresh dietro `server.py`.
+Tema dark teal di default, light opzionale (toggle in header).

@@ -1,394 +1,144 @@
-import { useEffect, useState } from "react";
-import {
-  apiGet,
-  apiPost,
-  streamChat,
-  type ChatMessage,
-  type SessionInfo,
-} from "./api";
+import { useState } from "react";
+import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { useBrain } from "./brain";
+import { useTheme } from "./theme";
+import ChatPage from "./pages/ChatPage";
+import SessionsPage from "./pages/SessionsPage";
+import StatusPage from "./pages/StatusPage";
+import SkillsPage from "./pages/SkillsPage";
+import ChannelsPage from "./pages/ChannelsPage";
+import SettingsPage from "./pages/SettingsPage";
 
-type View = "home" | "chat" | "status" | "settings";
-type Msg = { role: "user" | "agent"; text: string; live?: boolean };
+const NAV = [
+  { to: "/", label: "Chat", glyph: "◆", end: true },
+  { to: "/sessions", label: "Sessioni", glyph: "▤" },
+  { to: "/status", label: "Stato", glyph: "●" },
+  { to: "/skills", label: "Skill", glyph: "✦" },
+  { to: "/channels", label: "Canali", glyph: "▲" },
+  { to: "/settings", label: "Impostazioni", glyph: "⚙" },
+];
 
-interface StatusDto {
-  service: string;
-  brain: string;
-  budget: { used: number; calls: number; limit: number; pct: number | null };
-}
-interface DoctorDto {
-  active: string;
-  provider: string;
-  api: { ok: boolean; detail: string };
-  local: { ok: boolean; detail: string };
-}
-
-function useTheme() {
-  const [dark, setDark] = useState(
-    () => localStorage.getItem("omnicore_theme") === "dark",
-  );
-  useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-    localStorage.setItem("omnicore_theme", dark ? "dark" : "light");
-  }, [dark]);
-  return { dark, setDark };
-}
-
-function PromptCard(props: {
-  onSend: (t: string) => void;
-  busy: boolean;
-  autofocus?: boolean;
-}) {
-  const [text, setText] = useState("");
-  const [style, setStyle] = useState(
-    () => localStorage.getItem("omnicore_style") || "default",
-  );
-  const send = () => {
-    const t = text.trim();
-    if (!t || props.busy) return;
-    localStorage.setItem("omnicore_style", style);
-    setText("");
-    props.onSend(t);
-  };
-  return (
-    <div className="promptcard">
-      <textarea
-        rows={3}
-        placeholder="Chiedi a Omnicore…"
-        value={text}
-        autoFocus={props.autofocus}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            send();
-          }
-        }}
-      />
-      <div className="promptrow">
-        <select
-          value={style}
-          onChange={(e) => setStyle(e.target.value)}
-          title="Stile risposta"
-        >
-          <option value="default">Default</option>
-          <option value="conciso">Conciso</option>
-          <option value="dettagliato">Dettagliato</option>
-          <option value="code">Codice</option>
-        </select>
-        <button
-          className="sendbtn"
-          onClick={send}
-          disabled={props.busy || !text.trim()}
-          title="Invia"
-        >
-          ↑
-        </button>
-      </div>
-    </div>
-  );
+function brainColor(b: string): string {
+  if (b === "api") return "var(--ok)";
+  if (b === "local") return "var(--warn)";
+  if (b === "offline") return "var(--ko)";
+  return "var(--dim)";
 }
 
 export default function App() {
-  const { dark, setDark } = useTheme();
-  const [view, setView] = useState<View>("home");
-  const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [tools, setTools] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [sid, setSid] = useState<string | null>(null);
-  const [brain, setBrain] = useState("…");
-  const [status, setStatus] = useState<StatusDto | null>(null);
-  const [doctor, setDoctor] = useState<DoctorDto | null>(null);
-  const [token, setToken] = useState(
-    () => localStorage.getItem("omnicore_token") || "",
-  );
-  const [timelineOpen, setTimelineOpen] = useState(true);
+  const { brain, budgetPct } = useBrain();
+  const { theme, toggle } = useTheme();
+  const [open, setOpen] = useState(false);
+  const nav = useNavigate();
 
-  const refreshBrain = async () => {
-    try {
-      const [d, s] = await Promise.all([
-        apiGet<DoctorDto>("/api/doctor"),
-        apiGet<StatusDto>("/api/status"),
-      ]);
-      setBrain(d.active);
-      setDoctor(d);
-      setStatus(s);
-    } catch {
-      setBrain("offline");
-    }
-  };
-  useEffect(() => {
-    void refreshBrain();
-  }, []);
-
-  const saveToken = (t: string) => {
-    setToken(t);
-    try {
-      localStorage.setItem("omnicore_token", t);
-    } catch {
-      /* best-effort */
-    }
-  };
-
-  const send = async (text: string) => {
-    setView("chat");
-    setBusy(true);
-    setMsgs((m) => [...m, { role: "user", text }]);
-    setTools([]);
-    setMsgs((m) => [...m, { role: "agent", text: "", live: true }]);
-    const pushToken = (t: string) =>
-      setMsgs((m) => {
-        const c = [...m];
-        c[c.length - 1] = {
-          role: "agent",
-          text: c[c.length - 1].text + t,
-          live: true,
-        };
-        return c;
-      });
-    try {
-      let finalReply = "";
-      await streamChat(
-        text,
-        sid,
-        {
-          onToken: pushToken,
-          onTool: (l) => setTools((t) => [...t, l]),
-          onSession: (id) => setSid(id),
-          onResult: (r) => {
-            finalReply = r;
-          },
-        },
-      );
-      if (finalReply) {
-        setMsgs((m) => {
-          const c = [...m];
-          c[c.length - 1] = { role: "agent", text: finalReply };
-          return c;
-        });
-      } else {
-        setMsgs((m) => {
-          const c = [...m];
-          c[c.length - 1] = { ...c[c.length - 1], live: false };
-          return c;
-        });
-      }
-    } catch (e) {
-      setMsgs((m) => {
-        const c = [...m];
-        c[c.length - 1] = {
-          role: "agent",
-          text: `Errore di connessione: ${String(e).slice(0, 160)}`,
-        };
-        return c;
-      });
-    } finally {
-      setBusy(false);
-      void refreshBrain();
-    }
-  };
-
-  return (
-    <>
-      <header className="topbar">
-        <span className="logo">Omnicore</span>
-        <span className="brain" title="Stato cervello">
-          {brain}
-        </span>
-        <span className="spacer" />
-        <button
-          className="iconbtn"
-          onClick={() => setDark(!dark)}
-          title="Tema chiaro/scuro"
-        >
-          {dark ? "☾" : "☀"}
-        </button>
-        <button className="iconbtn" onClick={() => setView("status")}>
-          stato
-        </button>
-        <button className="iconbtn" onClick={() => setView("settings")}>
-          ⚙
-        </button>
-      </header>
-
-      {view === "home" && (
-        <main className="landing">
-          <h1>Cosa esploriamo?</h1>
-          <PromptCard onSend={send} busy={busy} autofocus />
-          <span className="hint">
-            Chat live sul loop Omnicore · token e tool in diretta
-          </span>
-        </main>
-      )}
-
-      {view === "chat" && (
-        <main className="chat">
-          {msgs.map((m, i) => (
-            <div key={i} className={`msg ${m.role}`}>
-              <div className={`bubble${m.live ? " live" : ""}`}>{m.text}</div>
-            </div>
-          ))}
-          {tools.length > 0 && (
-            <details
-              className="timeline"
-              open={timelineOpen}
-              onToggle={(e) =>
-                setTimelineOpen((e.target as HTMLDetailsElement).open)
-              }
-            >
-              <summary>Attività ({tools.length})</summary>
-              {tools.join("\n")}
-            </details>
-          )}
-        </main>
-      )}
-
-      {view === "status" && (
-        <main className="statuspanel">
-          <div className="card">
-            <h3>Cervello</h3>
-            <div>
-              attivo: <b>{doctor?.active ?? brain}</b> · provider:{" "}
-              {doctor?.provider ?? "…"}
-            </div>
-            <div className="hint">
-              api: {doctor ? (doctor.api.ok ? "ok" : doctor.api.detail) : "…"} ·
-              local:{" "}
-              {doctor ? (doctor.local.ok ? "ok" : doctor.local.detail) : "…"}
-            </div>
-          </div>
-          <div className="card">
-            <h3>Budget</h3>
-            {status ? (
-              <>
-                <div>
-                  token oggi: <b>{status.budget.used}</b>
-                  {status.budget.limit
-                    ? ` / ${status.budget.limit}`
-                    : ""}{" "}
-                  · chiamate: {status.budget.calls}
-                </div>
-                <div className="bar">
-                  <div
-                    style={{
-                      width: `${
-                        status.budget.pct == null
-                          ? 0
-                          : Math.min(100, Math.round(status.budget.pct * 100))
-                      }%`,
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              "caricamento…"
-            )}
-            <div className="hint">
-              Chiavi e segreti restano env sul server, mai mostrati qui.
-            </div>
-          </div>
-          <SessionsPanel sid={sid} />
-          <button
-            className="iconbtn"
-            onClick={() => {
-              setView(msgs.length ? "chat" : "home");
-            }}
+  const sidebar = (
+    <div className="flex h-full flex-col">
+      <button
+        className="mb-1 px-3 py-2 text-left text-lg font-bold tracking-wide"
+        onClick={() => {
+          nav("/");
+          setOpen(false);
+        }}
+      >
+        Omnicore
+      </button>
+      <nav className="flex flex-col gap-1 px-2">
+        {NAV.map((n) => (
+          <NavLink
+            key={n.to}
+            to={n.to}
+            end={n.end}
+            onClick={() => setOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm no-underline ${
+                isActive
+                  ? "bg-[var(--acc-dim)] text-[var(--txt)]"
+                  : "text-[var(--dim)] hover:bg-[var(--bg-soft)] hover:text-[var(--txt)]"
+              }`
+            }
+            style={{ textDecoration: "none" }}
           >
-            ← torna alla chat
-          </button>
-        </main>
-      )}
-
-      {view === "settings" && (
-        <main className="settings">
-          <h3>Impostazioni</h3>
-          <label>
-            Bearer token
-            <input
-              type="password"
-              value={token}
-              autoComplete="off"
-              placeholder="OMNICORE_API_TOKEN"
-              onChange={(e) => saveToken(e.target.value)}
-            />
-          </label>
-          <span className="hint">
-            Salvato solo in localStorage del browser. Mai committato.
-          </span>
-          <button
-            className="iconbtn"
-            onClick={() => {
-              void refreshBrain();
-              setView(msgs.length ? "chat" : "home");
-            }}
-          >
-            salva e torna
-          </button>
-        </main>
-      )}
-
-      {(view === "home" || view === "chat") && msgs.length > 0 && (
-        <div className="dock">
-          <PromptCard onSend={send} busy={busy} />
-        </div>
-      )}
-    </>
-  );
-}
-
-function SessionsPanel(props: { sid: string | null }) {
-  const [list, setList] = useState<SessionInfo[]>([]);
-  const [detail, setDetail] = useState<ChatMessage[] | null>(null);
-  useEffect(() => {
-    apiGet<SessionInfo[]>("/api/sessions")
-      .then(setList)
-      .catch(() => setList([]));
-  }, []);
-  const open = async (id: string) => {
-    try {
-      const s = await apiGet<{ messages: ChatMessage[] }>(
-        `/api/session?id=${encodeURIComponent(id)}`,
-      );
-      setDetail(s.messages || []);
-    } catch {
-      setDetail(null);
-    }
-  };
-  const abort = async () => {
-    if (!props.sid) return;
-    await apiPost("/api/chat/abort", { session_id: props.sid }).catch(
-      () => null,
-    );
-  };
-  return (
-    <div className="card">
-      <h3>Sessioni ({list.length})</h3>
-      {list
-        .slice(-8)
-        .reverse()
-        .map((s) => (
-          <div key={s.id}>
-            <button className="iconbtn" onClick={() => void open(s.id)}>
-              {s.id}
-            </button>{" "}
-            <span className="hint">
-              {s.count} msg · {s.last.slice(0, 50)}
-              {s.id === props.sid ? " · attiva" : ""}
-            </span>
-          </div>
+            <span className="w-5 text-center text-[var(--acc)]">{n.glyph}</span>
+            <span>{n.label}</span>
+          </NavLink>
         ))}
-      {detail && (
-        <div className="hint" style={{ whiteSpace: "pre-wrap" }}>
-          {detail
-            .slice(-5)
-            .map((m) => `· [${m.intent || "chat"}] ${(m.answer || "").slice(0, 120)}`)
-            .join("\n")}
+      </nav>
+      <div className="mt-auto px-3 py-3 text-xs text-[var(--dim)]">
+        <div className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg-soft)] p-2">
+          loop ReAct · jail workspace
+          <br />
+          conferme per scritture
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-full bg-[var(--bg)] text-[var(--txt)]">
+      {/* Sidebar desktop */}
+      <aside className="hidden w-60 shrink-0 border-r border-[var(--line)] bg-[var(--bg-soft)] py-3 md:block">
+        {sidebar}
+      </aside>
+      {/* Drawer mobile */}
+      {open && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 h-full w-64 bg-[var(--bg-soft)] py-3 shadow-[var(--shadow)]">
+            {sidebar}
+          </aside>
         </div>
       )}
-      {props.sid && (
-        <button className="iconbtn" onClick={() => void abort()}>
-          interrompi turno
-        </button>
-      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-2 border-b border-[var(--line)] px-3 py-2">
+          <button
+            className="rounded px-2 py-1 text-[var(--dim)] hover:bg-[var(--bg-soft)] md:hidden"
+            onClick={() => setOpen(true)}
+            title="Menu"
+          >
+            ☰
+          </button>
+          <span className="text-sm font-semibold md:hidden">Omnicore</span>
+          <span className="flex-1" />
+          <span
+            className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-2.5 py-0.5 text-xs"
+            title="Cervello attivo"
+          >
+            <span style={{ color: brainColor(brain) }}>●</span> {brain}
+          </span>
+          <span
+            className="hidden rounded-full border border-[var(--line)] bg-[var(--panel)] px-2.5 py-0.5 text-xs text-[var(--dim)] sm:inline"
+            title="Budget token giornaliero"
+          >
+            budget {budgetPct == null ? "∞" : `${Math.round(budgetPct * 100)}%`}
+          </span>
+          <button
+            className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-2.5 py-0.5 text-xs hover:bg-[var(--panel-2)]"
+            onClick={toggle}
+            title="Tema chiaro/scuro"
+          >
+            {theme === "dark" ? "☾ scuro" : "☀ chiaro"}
+          </button>
+        </header>
+
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <Routes>
+            <Route path="/" element={<ChatPage />} />
+            <Route path="/sessions" element={<SessionsPage />} />
+            <Route path="/status" element={<StatusPage />} />
+            <Route path="/skills" element={<SkillsPage />} />
+            <Route path="/channels" element={<ChannelsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </main>
+
+        <footer className="border-t border-[var(--line)] px-3 py-1.5 text-xs text-[var(--dim)]">
+          Omnicore · memoria + codice + presenza · chiavi solo env sul server
+        </footer>
+      </div>
     </div>
   );
 }
