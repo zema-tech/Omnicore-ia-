@@ -1,7 +1,11 @@
-// CLI unificata (Tappa 57): sottocomandi base, exit code onesti, delega da index.ts.
+// CLI unificata (Tappe 57-59): sottocomandi base+estesi+init, exit code onesti, delega da index.ts.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { ensureInit } from "../src/modules/init.ts";
 
 const HERE = new URL("..", import.meta.url).pathname;
 const ENV = { ...process.env, OMNICORE_WORKSPACE: HERE };
@@ -100,5 +104,31 @@ describe("cli estesa (tappa 58)", () => {
     });
     assert.equal(p.status, 0);
     assert.ok(p.stdout.includes("gateway") && p.stdout.includes("code"));
+  });
+});
+
+describe("cli init (tappa 59)", () => {
+  it("ensureInit: crea e poi conserva (idempotente)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "omni-init-"));
+    const first = ensureInit(dir);
+    assert.ok(first.created.includes("omnicore.config.json"));
+    assert.ok(first.created.includes("data"));
+    const second = ensureInit(dir);
+    assert.deepEqual(second.created, []);
+    assert.ok(second.kept.includes("omnicore.config.json"));
+  });
+  it("init: exit 0, init --json parsabile", () => {
+    const p = cli("init");
+    assert.equal(p.status, 0);
+    const j = cli("init", "--json");
+    assert.equal(j.status, 0);
+    const rep = JSON.parse(j.stdout) as { created?: unknown; kept?: unknown };
+    assert.ok(Array.isArray(rep.created) && Array.isArray(rep.kept));
+  });
+  it("doctor --offline --json: contiene il check init", () => {
+    const p = cli("doctor", "--offline", "--json");
+    assert.equal(p.status, 0);
+    const j = JSON.parse(p.stdout) as { checks?: { id?: string }[] };
+    assert.ok(Array.isArray(j.checks) && j.checks.some((c) => c.id === "init"));
   });
 });

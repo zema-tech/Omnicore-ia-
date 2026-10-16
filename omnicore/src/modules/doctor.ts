@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "../config.ts";
 import { llmDoctor, type DoctorResult } from "../mind/llm.ts";
 import { listSkills } from "./skills.ts";
+import { ensureInit } from "./init.ts";
 import { channelStatus } from "./channels.ts";
 
 export type CheckLevel = "ok" | "warn" | "ko";
@@ -141,6 +142,19 @@ function channelsCheck(): DoctorCheck {
   });
 }
 
+function initCheck(): DoctorCheck {
+  return check("init", "Inizializzazione", () => {
+    if (existsSync(join(OMNI, "omnicore.config.json"))) {
+      return { level: "ok", detail: "omnicore.config.json presente" };
+    }
+    return {
+      level: "warn",
+      detail: "omnicore.config.json assente (workspace non inizializzato)",
+      hint: "omnicore init (o doctor --fix)",
+    };
+  });
+}
+
 function budgetCheck(): DoctorCheck {
   return check("budget", "Budget LLM", () => {
     const raw = process.env["OMNICORE_BUDGET_TOKENS_DAY"] ?? "";
@@ -169,19 +183,14 @@ function llmCheck(d: DoctorResult): DoctorCheck {
   };
 }
 
-/** Fix sicuri e non distruttivi: crea dir/file mancanti. Mai throw. */
+/** Fix sicuri e non distruttivi: crea dir/file mancanti (stesso set di `omnicore init`). Mai throw. */
 function applyFix(): string[] {
   const fixed: string[] = [];
   try {
-    const data = join(OMNI, "data");
-    if (!existsSync(data)) {
-      mkdirSync(data, { recursive: true });
-      fixed.push("creata cartella data/");
-    }
-    const vault = join(data, "vault");
-    if (!existsSync(vault)) {
-      mkdirSync(vault, { recursive: true });
-      fixed.push("creata cartella data/vault/");
+    const rep = ensureInit(OMNI);
+    for (const c of rep.created) {
+      if (c === "omnicore.config.json") fixed.push("creato omnicore.config.json (default)");
+      else if (c !== ".") fixed.push(`creata cartella ${c}/`);
     }
   } catch {
     /* best-effort: il report mostra i ko restanti */
@@ -222,6 +231,7 @@ export async function runDoctor(opts: DoctorOpts = {}): Promise<DoctorReport> {
     securityCheck(),
     workspaceCheck(),
     dataCheck(),
+    initCheck(),
     skillsCheck(),
     channelsCheck(),
     budgetCheck(),

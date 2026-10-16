@@ -1,12 +1,14 @@
-// Omnicore CLI unificata (Tappe 57-58): `omnicore <comando>` stile Hermes/OpenCode.
+// Omnicore CLI unificata (Tappe 57-59): `omnicore <comando>` stile Hermes/OpenCode.
 // Base (57): help/version/doctor/status/skills. Estesa (58): serve/web/chat/tui/gateway/code.
+// Init (59): init + check "init" in doctor.
 // I flag storici di index.ts (--agent, --doctor, --skills, …) restano invariati.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ensureInit } from "./modules/init.ts";
 
-export const CLI_COMMANDS = ["help", "version", "doctor", "status", "skills", "serve", "web", "chat", "tui", "gateway", "code"] as const;
+export const CLI_COMMANDS = ["help", "version", "doctor", "status", "skills", "serve", "web", "chat", "tui", "gateway", "code", "init"] as const;
 export type CliCommand = (typeof CLI_COMMANDS)[number];
 
 export function isCliCommand(a: string | undefined): a is CliCommand {
@@ -46,6 +48,7 @@ export function cliHelp(): string {
     "  tui                               interfaccia testuale",
     "  gateway                           server MCP su stdio",
     "  code <obiettivo>                  esegue un turno dell'agente e stampa la risposta",
+    "  init [--json]                      crea config + cartelle dati se mancanti (idempotente)",
     "",
     "Compatibilità: restano validi `node src/index.ts --agent …`, `--doctor`, `--skills`, …",
   ].join("\n");
@@ -188,6 +191,25 @@ async function cmdCode(rest: string[]): Promise<number> {
   }
 }
 
+async function cmdInit(rest: string[]): Promise<number> {
+  try {
+    const rep = ensureInit(OMNICORE_DIR);
+    if (hasFlag(rest, "--json")) {
+      console.log(JSON.stringify(rep, null, 2));
+    } else {
+      const lines = [
+        ...rep.created.map((c) => `creato: ${c}`),
+        ...rep.kept.map((c) => `presente: ${c}`),
+      ];
+      console.log([`init: ${rep.dir}`, ...lines].join("\n"));
+    }
+    return 0;
+  } catch (e) {
+    console.error(`init: ${String(e).slice(0, 250)}`);
+    return 1;
+  }
+}
+
 export async function runCli(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv;
   switch (cmd) {
@@ -220,6 +242,8 @@ export async function runCli(argv: string[]): Promise<number> {
       return cmdGateway(rest);
     case "code":
       return cmdCode(rest);
+    case "init":
+      return cmdInit(rest);
     default:
       console.error(`comando sconosciuto: ${cmd}\n`);
       console.error(cliHelp());
