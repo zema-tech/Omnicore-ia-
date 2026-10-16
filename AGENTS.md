@@ -1,7 +1,9 @@
 # AGENTS.md — istruzioni per chi scrive codice in questo repo (umano o agente)
 
-Omnicore-ia è UN agente IA, non un orchestratore. Ogni capacità vive in un modulo
-nativo sotto `omnicore/src/`; i vendor in `vendors/` sono solo riferimento.
+Omnicore-ia è UN agente IA, non un orchestratore di prodotti esterni: anche
+l'orchestrazione è una facoltà interna (agenzie di sotto-agenti, `modules/agency.ts`).
+Ogni capacità vive in un modulo nativo sotto `omnicore/src/`; i vendor in `vendors/`
+sono solo riferimento.
 
 ## Comandi (da `omnicore/`)
 
@@ -26,6 +28,6 @@ npm run serve          # API + dashboard (guscio HTTP del loop)
 
 ## Mappa rapida
 
-`agent/` loop+piano+tool · `modules/` canali/cron/agenti/sessioni/permessi/skill/edit/search/todo ·
+`agent/` loop+piano+tool · `modules/` canali/cron/agenti/agenzie/sessioni/permessi/skill/edit/search/todo ·
 `faculties/` memoria/codice/presenza · `decide/` regole→Jev→CLM · `mind/` LLM+sintesi ·
 `vault/` note · `config.ts` + profili light/medium/alt · `server.py` guscio HTTP.
