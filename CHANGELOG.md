@@ -1,5 +1,43 @@
 # Changelog
 
+## Tappa 61 — README solo-omnicore + smoke
+Quickstart riscritto con soli comandi `omnicore …`: clone senza
+submodule, `npx omnicore init`, `npx omnicore doctor`,
+`npx omnicore code "…"`, `npx omnicore serve`. Rimosso ogni
+riferimento a `vendors/` (sotto-moduli cancellati). Sezione Doctor
+aggiornata (10 check con `init`). Smoke: `version`, `help`,
+`doctor --offline`, `status --json`, `skills` verdi da binario.
+
+## Tappa 60 — Agency minima
+Nuovo modulo `modules/agency.ts`: `splitGoal` divide un obiettivo in
+2–3 sub-task (research + code, più verifica se lungo) e `runAgency`
+li esegue via `agentFanout` esistente (mai throw, report con
+riepilogo). Sottocomando `omnicore agency "<goal>"` (exit 2 senza
+obiettivo, exit 1 se il report fallisce). Test sullo split, nessun
+test di esecuzione (serve LLM/rete).
+
+## Tappa 59 — Init + check in doctor
+Nuovo sottocomando `omnicore init`: crea `omnicore.config.json`
+(default profilo light, zero behavior change) e `data/` + `data/vault`
+se mancanti, idempotente, mai sovrascrive. Il doctor guadagna il
+10° check `init` (ok se config presente, avviso + hint `omnicore init`
+altrimenti); `--fix` delega a init con gli stessi messaggi di prima.
+
+## Tappa 58 — CLI estesa
+Sei nuovi sottocomandi: `serve` (python3 server.py [--port]),
+`web` (vite dev in apps/web), `chat`, `tui`, `gateway` (MCP stdio)
+via spawn con stdio inherit, e `code <obiettivo>` che esegue runAgent
+e stampa la reply (exit 2 senza obiettivo, 1 se abort/errore).
+Help aggiornata, flag `--*` storici intatti.
+
+## Tappa 57 — CLI base
+Nuovo dispatcher `src/cli.ts` + binario `bin/omnicore.js` (campo
+`bin` in package.json): sottocomandi `version`, `help`, `doctor`
+(--fix/--json/--offline, exit 1 se errori), `status` (+--json),
+`skills [list]` (+--json), exit 2 per comando sconosciuto. `index.ts`
+delega alla CLI unificata se il primo argomento è un sottocomando
+noto; tutti i flag storici restano invariati.
+
 ## Tappa 56 — Omnicore doctor
 `npm run doctor` ora è una diagnostica completa (pattern `hermes doctor`,
 solo Omnicore): 9 check (node, config, sicurezza, workspace, dati, skill,

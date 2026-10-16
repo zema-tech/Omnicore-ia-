@@ -2,9 +2,9 @@
 
 **Omnicore** è un agente IA con un loop ReAct (`osserva → agisci`, fino a
 `OMNICORE_MAX_ROUNDS` giri con la tua key, giro singolo offline),
-identità propria e organi nativi. Nasce studiando
-[Hermes](vendors/hermes), [OpenCode](vendors/opencode) e [OpenClaw](vendors/openclaw),
-ma **non li orchestra come prodotti esterni**: fonde le capacità in moduli propri.
+identità propria e organi nativi. Nasce studiando Hermes, OpenCode e
+OpenClaw, ma **non li orchestra come prodotti esterni**: fonde le capacità
+in moduli propri.
 
 ## Root del monorepo
 
@@ -16,20 +16,19 @@ omnicore/       runtime attivo (loop, test, server)
 docs/           architettura e deploy
 docker/         container
 examples/       transcript di turni
-vendors/        submodule di riferimento (non editare)
 ```
 
 ## Quickstart
 
 ```bash
-git clone --recurse-submodules https://github.com/zema-tech/Omnicore-ia-.git
-cd Omnicore-ia-
-cd omnicore && cp .env.example .env   # opzionale
+git clone https://github.com/zema-tech/Omnicore-ia-.git
+cd Omnicore-ia-/omnicore && npm install
+npx omnicore init       # crea config + data/ se mancanti
+npx omnicore doctor     # diagnostica (exit 1 se errori)
 
-npm run agent -- "elenca i file"
-npm run agent -- "confermo: scrivi file hello.txt con contenuto ciao"
-npm test
-npm run serve   # http://127.0.0.1:8100
+npx omnicore code "elenca i file"
+npm test                # suite di sviluppo
+npx omnicore serve      # http://127.0.0.1:8100
 ```
 
 ## Collega la tua API key (il tuo agente)
@@ -41,8 +40,8 @@ un vero agente (piano + risposta dal modello):
 export OMNICORE_LLM_BASE_URL="https://openrouter.ai/api/v1"  # o Ollama/LM Studio
 export OMNICORE_LLM_API_KEY="sk-..."                          # solo env, mai nel repo
 export OMNICORE_LLM_MODEL="anthropic/claude-sonnet-4"         # o llama3.1, qwen...
-npm run doctor   # verifica: active deve dire "api" (o "local" con Ollama)
-npm run agent -- "ciao"
+npx omnicore doctor   # verifica: active deve dire "api" (o "local" con Ollama)
+npx omnicore chat      # oppure: npx omnicore code "ciao"
 ```
 
 Chiavi solo da env (`omnicore/.env.example` le elenca tutte). Senza backend
@@ -83,10 +82,10 @@ settings (solo `localStorage`). Produzione: `npm run web-build`, poi
 ## Doctor (diagnostica)
 
 ```bash
-npm run doctor              # check: node, config, sicurezza, workspace, dati, skill, canali, budget, LLM
-npm run doctor -- --fix     # applica fix sicuri (crea data/ mancanti)
-npm run doctor -- --json    # report JSON (stesso di GET /api/doctor)
-npm run doctor -- --offline # salta le probe di rete
+npx omnicore doctor              # check: node, config, sicurezza, workspace, dati, init, skill, canali, budget, LLM
+npx omnicore doctor --fix        # applica fix sicuri (crea config + data/ mancanti)
+npx omnicore doctor --json       # report JSON (stesso di GET /api/doctor)
+npx omnicore doctor --offline    # salta le probe di rete
 ```
 
 Exit 0 se tutto ok (gli avvisi non falliscono), 1 se un check è `ko`.
