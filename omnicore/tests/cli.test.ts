@@ -1,4 +1,4 @@
-// CLI unificata (Tappe 57-59): sottocomandi base+estesi+init, exit code onesti, delega da index.ts.
+// CLI unificata (Tappe 57-60): sottocomandi base+estesi+init+agency, exit code onesti, delega da index.ts.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -6,6 +6,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureInit } from "../src/modules/init.ts";
+import { splitGoal } from "../src/modules/agency.ts";
 
 const HERE = new URL("..", import.meta.url).pathname;
 const ENV = { ...process.env, OMNICORE_WORKSPACE: HERE };
@@ -130,5 +131,28 @@ describe("cli init (tappa 59)", () => {
     assert.equal(p.status, 0);
     const j = JSON.parse(p.stdout) as { checks?: { id?: string }[] };
     assert.ok(Array.isArray(j.checks) && j.checks.some((c) => c.id === "init"));
+  });
+});
+
+describe("cli agency (tappa 60)", () => {
+  it("splitGoal: 2 sub-task per obiettivo breve", () => {
+    const items = splitGoal("aggiungi un comando");
+    assert.equal(items.length, 2);
+    assert.deepEqual(items.map((i) => i.role), ["research", "code"]);
+  });
+  it("splitGoal: 3 sub-task per obiettivo lungo", () => {
+    const items = splitGoal("x".repeat(141));
+    assert.equal(items.length, 3);
+    assert.equal(items[2].role, "code");
+  });
+  it("agency senza obiettivo: exit 2, nessun fanout", () => {
+    const p = cli("agency");
+    assert.equal(p.status, 2);
+    assert.match(p.stderr + p.stdout, /uso: omnicore agency/);
+  });
+  it("help: elenca agency", () => {
+    const p = cli("help");
+    assert.equal(p.status, 0);
+    assert.ok(p.stdout.includes("agency"));
   });
 });

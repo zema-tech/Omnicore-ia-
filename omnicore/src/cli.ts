@@ -1,6 +1,6 @@
-// Omnicore CLI unificata (Tappe 57-59): `omnicore <comando>` stile Hermes/OpenCode.
+// Omnicore CLI unificata (Tappe 57-60): `omnicore <comando>` stile Hermes/OpenCode.
 // Base (57): help/version/doctor/status/skills. Estesa (58): serve/web/chat/tui/gateway/code.
-// Init (59): init + check "init" in doctor.
+// Init (59): init + check "init" in doctor. Agency minima (60): agency "<goal>".
 // I flag storici di index.ts (--agent, --doctor, --skills, …) restano invariati.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ensureInit } from "./modules/init.ts";
 
-export const CLI_COMMANDS = ["help", "version", "doctor", "status", "skills", "serve", "web", "chat", "tui", "gateway", "code", "init"] as const;
+export const CLI_COMMANDS = ["help", "version", "doctor", "status", "skills", "serve", "web", "chat", "tui", "gateway", "code", "init", "agency"] as const;
 export type CliCommand = (typeof CLI_COMMANDS)[number];
 
 export function isCliCommand(a: string | undefined): a is CliCommand {
@@ -49,6 +49,7 @@ export function cliHelp(): string {
     "  gateway                           server MCP su stdio",
     "  code <obiettivo>                  esegue un turno dell'agente e stampa la risposta",
     "  init [--json]                      crea config + cartelle dati se mancanti (idempotente)",
+    "  agency \"<obiettivo>\"               split in 2-3 sub-task + fanout parallelo",
     "",
     "Compatibilità: restano validi `node src/index.ts --agent …`, `--doctor`, `--skills`, …",
   ].join("\n");
@@ -210,6 +211,26 @@ async function cmdInit(rest: string[]): Promise<number> {
   }
 }
 
+async function cmdAgency(rest: string[]): Promise<number> {
+  const goal = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+  if (goal.length === 0) {
+    console.error('uso: omnicore agency "<obiettivo>"');
+    return 2;
+  }
+  try {
+    const { runAgency } = await import("./modules/agency.ts");
+    const rep = await runAgency(goal, { workspace: workspaceDir() });
+    console.log(rep.summary);
+    for (const r of rep.report.results) {
+      console.log(`- ${r.agent} [${r.role}]: ${r.ok ? "ok" : "ko"} — ${r.summary.slice(0, 200)}`);
+    }
+    return rep.ok ? 0 : 1;
+  } catch (e) {
+    console.error(`agency: ${String(e).slice(0, 250)}`);
+    return 1;
+  }
+}
+
 export async function runCli(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv;
   switch (cmd) {
@@ -244,6 +265,8 @@ export async function runCli(argv: string[]): Promise<number> {
       return cmdCode(rest);
     case "init":
       return cmdInit(rest);
+    case "agency":
+      return cmdAgency(rest);
     default:
       console.error(`comando sconosciuto: ${cmd}\n`);
       console.error(cliHelp());
