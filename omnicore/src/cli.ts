@@ -1,11 +1,12 @@
-// Omnicore CLI unificata (Tappa 57): `omnicore <comando>` stile Hermes/OpenCode.
-// Base: help/version/doctor/status/skills. Le tappe 58-60 aggiungono gli altri.
+// Omnicore CLI unificata (Tappe 57-58): `omnicore <comando>` stile Hermes/OpenCode.
+// Base (57): help/version/doctor/status/skills. Estesa (58): serve/web/chat/tui/gateway/code.
 // I flag storici di index.ts (--agent, --doctor, --skills, …) restano invariati.
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const CLI_COMMANDS = ["help", "version", "doctor", "status", "skills"] as const;
+export const CLI_COMMANDS = ["help", "version", "doctor", "status", "skills", "serve", "web", "chat", "tui", "gateway", "code"] as const;
 export type CliCommand = (typeof CLI_COMMANDS)[number];
 
 export function isCliCommand(a: string | undefined): a is CliCommand {
@@ -39,6 +40,12 @@ export function cliHelp(): string {
     "  doctor [--fix] [--json] [--offline]  diagnostica (exit 1 se errori)",
     "  status [--json]                  versione, runtime, workspace e file chiave",
     "  skills [list] [--json]            elenco skill disponibili",
+    "  serve [--port N]                  API + dashboard (guscio HTTP del loop)",
+    "  web                               dashboard web (dev)",
+    "  chat                              chat interattiva nel terminale",
+    "  tui                               interfaccia testuale",
+    "  gateway                           server MCP su stdio",
+    "  code <obiettivo>                  esegue un turno dell'agente e stampa la risposta",
     "",
     "Compatibilità: restano validi `node src/index.ts --agent …`, `--doctor`, `--skills`, …",
   ].join("\n");
@@ -119,6 +126,68 @@ async function cmdSkills(rest: string[]): Promise<number> {
   return 0;
 }
 
+const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
+const OMNICORE_DIR = path.resolve(SRC_DIR, "..");
+const REPO_DIR = path.resolve(OMNICORE_DIR, "..");
+
+function runChild(cmd: string, args: string[], cwd: string): number {
+  const p = spawnSync(cmd, args, { cwd, stdio: "inherit" });
+  if (p.error) {
+    console.error(`${cmd}: ${String(p.error).slice(0, 200)}`);
+    return 1;
+  }
+  return typeof p.status === "number" ? p.status : 1;
+}
+
+function nodeEntry(script: string, args: string[]): number {
+  return runChild(process.execPath, ["--experimental-strip-types", script, ...args], SRC_DIR);
+}
+
+function portArg(rest: string[]): string[] {
+  const i = rest.indexOf("--port");
+  if (i >= 0 && rest[i + 1] !== undefined && !rest[i + 1].startsWith("--")) {
+    return ["--port", rest[i + 1]];
+  }
+  return [];
+}
+
+async function cmdServe(rest: string[]): Promise<number> {
+  return runChild("python3", [path.join(OMNICORE_DIR, "server.py"), ...portArg(rest)], OMNICORE_DIR);
+}
+
+async function cmdWeb(): Promise<number> {
+  return runChild("npm", ["run", "dev"], path.join(REPO_DIR, "apps/web"));
+}
+
+async function cmdChat(rest: string[]): Promise<number> {
+  return nodeEntry("./chat.ts", rest);
+}
+
+async function cmdTui(rest: string[]): Promise<number> {
+  return nodeEntry("./tui.ts", rest);
+}
+
+async function cmdGateway(rest: string[]): Promise<number> {
+  return nodeEntry("./mcp-serve.ts", rest);
+}
+
+async function cmdCode(rest: string[]): Promise<number> {
+  const goal = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+  if (goal.length === 0) {
+    console.error("uso: omnicore code <obiettivo>");
+    return 2;
+  }
+  try {
+    const { runAgent } = await import("./agent/index.ts");
+    const res = await runAgent(goal, { directory: workspaceDir() });
+    console.log(res.reply);
+    return res.aborted ? 1 : 0;
+  } catch (e) {
+    console.error(`code: ${String(e).slice(0, 250)}`);
+    return 1;
+  }
+}
+
 export async function runCli(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv;
   switch (cmd) {
@@ -139,6 +208,18 @@ export async function runCli(argv: string[]): Promise<number> {
       return cmdStatus(rest);
     case "skills":
       return cmdSkills(rest);
+    case "serve":
+      return cmdServe(rest);
+    case "web":
+      return cmdWeb();
+    case "chat":
+      return cmdChat(rest);
+    case "tui":
+      return cmdTui(rest);
+    case "gateway":
+      return cmdGateway(rest);
+    case "code":
+      return cmdCode(rest);
     default:
       console.error(`comando sconosciuto: ${cmd}\n`);
       console.error(cliHelp());

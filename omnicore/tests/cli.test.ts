@@ -70,3 +70,35 @@ describe("cli base (tappa 57)", () => {
     assert.match(p.stdout, /Omnicore doctor/);
   });
 });
+
+describe("cli estesa (tappa 58)", () => {
+  it("help: elenca i nuovi comandi", () => {
+    const p = cli("help");
+    assert.equal(p.status, 0);
+    for (const c of ["serve", "web", "chat", "tui", "gateway", "code"]) {
+      assert.ok(p.stdout.includes(c));
+    }
+  });
+  it("code senza obiettivo: exit 2, nessun turno", () => {
+    const p = cli("code");
+    assert.equal(p.status, 2);
+    assert.match(p.stderr + p.stdout, /uso: omnicore code/);
+  });
+  it("index.ts delega: code senza obiettivo resta compatibile", () => {
+    const p = spawnSync(process.execPath, ["--experimental-strip-types", "src/index.ts", "code"], {
+      cwd: HERE,
+      encoding: "utf8",
+      env: ENV,
+    });
+    assert.equal(p.status, 2);
+  });
+  it("bin/omnicore.js help: fumo comandi estesi", () => {
+    const p = spawnSync(process.execPath, ["bin/omnicore.js", "help"], {
+      cwd: HERE,
+      encoding: "utf8",
+      env: ENV,
+    });
+    assert.equal(p.status, 0);
+    assert.ok(p.stdout.includes("gateway") && p.stdout.includes("code"));
+  });
+});
