@@ -80,6 +80,18 @@ stato cervello/budget, catalogo skill (52 pack), stato canali, Bearer in
 settings (solo `localStorage`). Produzione: `npm run web-build`, poi
 `npm run serve` serve `apps/web/dist` con fallback alla dashboard legacy.
 
+## Doctor (diagnostica)
+
+```bash
+npm run doctor              # check: node, config, sicurezza, workspace, dati, skill, canali, budget, LLM
+npm run doctor -- --fix     # applica fix sicuri (crea data/ mancanti)
+npm run doctor -- --json    # report JSON (stesso di GET /api/doctor)
+npm run doctor -- --offline # salta le probe di rete
+```
+
+Exit 0 se tutto ok (gli avvisi non falliscono), 1 se un check è `ko`.
+La pagina Stato della dashboard mostra gli stessi controlli.
+
 ## Code agent LLM (opzionale)
 
 ```bash

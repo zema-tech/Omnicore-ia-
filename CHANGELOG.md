@@ -1,5 +1,13 @@
 # Changelog
 
+## Tappa 56 — Omnicore doctor
+`npm run doctor` ora è una diagnostica completa (pattern `hermes doctor`,
+solo Omnicore): 9 check (node, config, sicurezza, workspace, dati, skill,
+canali, budget, LLM) con livelli ok/avviso/errore, hint di fix, `--fix`
+sicuro (crea solo `data/` mancanti), `--json`, `--offline`, exit 1 se
+errori. `GET /api/doctor` ritorna gli stessi `checks` (campi storici
+intatti) e la pagina Stato li mostra. Mai throw, mai segreti in output.
+
 ## Tappa 55 — code.task LLM multi-step
 Con `OMNICORE_LLM_*` attivo il modello propone step JSON
 (`list/read/write/edit/shell/grep/glob/done`) eseguiti in workspace jail

@@ -80,6 +80,34 @@ export default function StatusPage() {
           "caricamento…"
         )}
       </Card>
+      <Card title="Controlli doctor">
+        {(doctor?.checks ?? []).map((c) => (
+          <div key={c.id} className="flex items-start gap-2 py-1 text-sm">
+            <span
+              style={{
+                color:
+                  c.level === "ok"
+                    ? "var(--ok)"
+                    : c.level === "warn"
+                      ? "var(--warn)"
+                      : "var(--ko)",
+              }}
+            >
+              {c.level === "ok" ? "✓" : c.level === "warn" ? "!" : "✗"}
+            </span>
+            <div>
+              <b>{c.label}</b>{" "}
+              <span className="text-[var(--dim)]">{c.detail}</span>
+              {c.hint && (
+                <div className="mono text-xs text-[var(--dim)]">→ {c.hint}</div>
+              )}
+            </div>
+          </div>
+        ))}
+        {!doctor?.checks && (
+          <div className="text-sm text-[var(--dim)]">caricamento…</div>
+        )}
+      </Card>
       <Card title="Note">
         <div className="text-sm text-[var(--dim)]">
           Servizio: {status?.service ?? "…"} · chiavi e segreti restano env sul

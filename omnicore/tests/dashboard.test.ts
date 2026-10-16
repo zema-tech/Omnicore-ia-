@@ -55,10 +55,12 @@ describe("dashboard server", () => {
     assert.ok(typeof j.budget.used === "number");
     assert.ok(!JSON.stringify(j).toLowerCase().includes("api_key") && !JSON.stringify(j).includes("Bearer"));
   });
-  it("doctor: active tra api/local/euristica", async () => {
+  it("doctor: active tra api/local/euristica + checks", async () => {
     const r = await fetch(`${BASE}/api/doctor`, { headers: HEADERS });
     const j = (await r.json()) as any;
     assert.ok(["api", "local", "euristica"].includes(j.active));
+    assert.ok(Array.isArray(j.checks) && j.checks.length >= 8);
+    assert.ok(!JSON.stringify(j).toLowerCase().includes("api_key"));
   });
   it("skills: catalogo pack, niente istruzioni intere", async () => {
     const r = await fetch(`${BASE}/api/skills`, { headers: HEADERS });

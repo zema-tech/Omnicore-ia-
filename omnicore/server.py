@@ -127,10 +127,10 @@ def _agent_turn(text: str, directory: str = "") -> dict:
     return res
 
 
-def _node_json(flag: str, timeout: int = 60) -> dict:
-    """Esegue node con flag diagnostica (--doctor) e ritorna il JSON o errore."""
+def _node_json(flag: str, timeout: int = 60, extra: list | None = None) -> dict:
+    """Esegue node con flag diagnostica (--doctor --json) e ritorna il JSON o errore."""
     try:
-        p = subprocess.run([NODE, "--experimental-strip-types", str(TS_ENTRY), flag],
+        p = subprocess.run([NODE, "--experimental-strip-types", str(TS_ENTRY), flag, *(extra or [])],
                            capture_output=True, text=True, timeout=timeout, cwd=str(HERE))
         return json.loads((p.stdout or "").strip() or "{}")
     except Exception as e:
@@ -138,7 +138,15 @@ def _node_json(flag: str, timeout: int = 60) -> dict:
 
 
 def _doctor() -> dict:
-    return _node_json("--doctor")
+    # Report completo (cervello + checks locali). Campi storici
+    # provider/api/local/active sempre presenti per la dashboard.
+    d = _node_json("--doctor", extra=["--json"])
+    if not isinstance(d, dict) or "active" not in d:
+        return {"provider": "api", "api": {"ok": False, "detail": "report non disponibile"},
+                "local": {"ok": False, "detail": "report non disponibile"},
+                "active": "euristica", "checks": []}
+    d.setdefault("checks", [])
+    return d
 
 
 def _skills() -> list:

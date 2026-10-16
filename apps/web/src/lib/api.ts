@@ -59,11 +59,20 @@ export interface StatusDto {
   budget: { used: number; calls: number; limit: number; pct: number | null };
 }
 
+export interface DoctorCheckDto {
+  id: string;
+  label: string;
+  level: "ok" | "warn" | "ko";
+  detail: string;
+  hint?: string;
+}
+
 export interface DoctorDto {
   active: string;
   provider: string;
   api: { ok: boolean; detail: string };
   local: { ok: boolean; detail: string };
+  checks?: DoctorCheckDto[];
 }
 
 export interface SkillDto {

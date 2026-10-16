@@ -7,6 +7,7 @@ nativo sotto `omnicore/src/`; i vendor in `vendors/` sono solo riferimento.
 
 ```bash
 npm run agent -- "…"   # turno del loop (unico path di pensiero)
+npm run doctor -- [--fix] [--json] [--offline]  # diagnostica (exit 1 se errori)
 npm test               # suite node:test, deve stare 100% verde
 npm run typecheck      # tsc --noEmit, zero errori
 npm run serve          # API + dashboard (guscio HTTP del loop)

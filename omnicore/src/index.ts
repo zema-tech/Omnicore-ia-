@@ -2,14 +2,13 @@
 //   --agent  "…"   → turno IA (tool unificati, identità Omnicore)
 //   --stream "…"   → turno IA con eventi NDJSON (token/tool/loop_end) su stdout
 //   --fuse   "…"   → pipeline legacy brain→hands→face
-//   --doctor       → verifica quale cervello risponde (api/local/euristica)
+//   --doctor [--fix] [--json] [--offline] → diagnostica completa (check + cervello)
 //   --skills       → elenco skill pack (JSON, per la dashboard)
 //   --channels     → stato canali (JSON, per la dashboard)
 //   --plugins <cmd> [arg] → gestione plugin (list, info, install, remove)
 //   (default) "…"  → route singola (debug)
 import { route } from "./router.ts";
 import { fuse } from "./pipeline.ts";
-import { llmDoctor } from "./mind/llm.ts";
 import { plugins } from "./modules/plugins.ts";
 import { memory } from "./faculties/memory.ts";
 import { code } from "./faculties/code.ts";
@@ -37,7 +36,18 @@ async function main() {
       .join(" ") || "ciao";
 
   if (doDoctor) {
-    console.log(JSON.stringify(await llmDoctor(), null, 2));
+    const { runDoctor, formatDoctorText } = await import("./modules/doctor.ts");
+    const report = await runDoctor({
+      live: !raw.includes("--offline"),
+      fix: raw.includes("--fix"),
+    });
+    if (raw.includes("--json")) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(formatDoctorText(report));
+    }
+    const failed = report.checks.some((c) => c.level === "ko");
+    process.exitCode = failed ? 1 : 0;
     return;
   }
 
