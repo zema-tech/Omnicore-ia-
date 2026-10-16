@@ -2,6 +2,9 @@
   "name": "omnicore",
   "version": "0.2.0",
   "description": "Omnicore — IA agente (memoria · codice · presenza · mondo · decide)",
+  "bin": {
+    "omnicore": "./bin/omnicore.js"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

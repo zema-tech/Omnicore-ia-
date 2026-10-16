@@ -14,9 +14,15 @@ import { memory } from "./faculties/memory.ts";
 import { code } from "./faculties/code.ts";
 import { channel } from "./faculties/channel.ts";
 import { runAgent } from "./agent/index.ts";
+import { isCliCommand, runCli } from "./cli.ts";
 
 async function main() {
   const raw = process.argv.slice(2);
+  // CLI unificata (Tappa 57): `omnicore <comando>` — i flag --* sotto restano invariati.
+  if (raw.length > 0 && isCliCommand(raw[0])) {
+    process.exitCode = await runCli(raw);
+    return;
+  }
   const doFuse = raw.includes("--fuse");
   const doAgent = raw.includes("--agent");
   const doStream = raw.includes("--stream");
