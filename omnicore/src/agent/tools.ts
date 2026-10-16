@@ -38,6 +38,7 @@ import { google } from "../modules/google.ts";
 import { spotify } from "../modules/spotify.ts";
 import { cron } from "../modules/cron.ts";
 import { agents } from "../modules/agents.ts";
+import { agency } from "../modules/agency.ts";
 import { permissions } from "../modules/permissions.ts";
 import { skills } from "../modules/skills.ts";
 import { codeAgent } from "../modules/code_agent.ts";
@@ -149,6 +150,9 @@ export type ToolName =
   | "agents.pause"
   | "agents.run"
   | "agents.fanout"
+  | "agency.create"
+  | "agency.run"
+  | "agency.status"
   | "permissions.request"
   | "permissions.respond"
   | "permissions.list"
@@ -1106,7 +1110,62 @@ export async function runTool(call: ToolCall, ctx: { directory?: string; text?: 
           ? { name: call.name, ok: true, via: "agents(fanout)", data: rep }
           : { name: call.name, ok: false, via: "agents(fanout)", error: rep.summary.slice(0, 600) };
       }
-      case "permissions.request": {
+      case "agency.create": {
+      try {
+        const steps = Array.isArray(args.steps)
+          ? (args.steps as unknown[]).map((raw) => {
+              const o = (raw ?? {}) as Record<string, unknown>;
+              const r = String(o.role ?? "code");
+              const role: "research" | "code" | "ops" | "review" =
+                r === "research" || r === "ops" || r === "review" ? r : "code";
+              return { role, task: String(o.task ?? "") };
+            })
+          : undefined;
+        const ag = await agency.create(String(args.goal ?? ""), {
+          steps,
+          owner: typeof args.owner === "string" ? args.owner : undefined,
+        });
+        return {
+          name: call.name,
+          ok: true,
+          via: "agency(native)",
+          data: {
+            id: ag.id,
+            status: ag.status,
+            steps: ag.steps.map((s) => ({ role: s.role, task: s.task, boardTask: s.boardTask })),
+          },
+        };
+      } catch (e) {
+        return { name: call.name, ok: false, via: "agency(native)", error: String(e).slice(0, 200) };
+      }
+    }
+    case "agency.run": {
+      if (args.confirm !== true) {
+        return {
+          name: call.name,
+          ok: false,
+          via: "agency(native)",
+          needsConfirm: true,
+          preview: `agency.run ${String(args.id ?? "")}: esegue gli step dell'agenzia sul workboard`,
+        };
+      }
+      const rep = await agency.run(String(args.id ?? ""), {
+        workspace: typeof args.workspace === "string" ? args.workspace : ctx.directory,
+        budgetSteps: typeof args.budgetSteps === "number" ? args.budgetSteps : undefined,
+      });
+      return rep.ok
+        ? { name: call.name, ok: true, via: "agency(native)", data: rep }
+        : { name: call.name, ok: false, via: "agency(native)", error: rep.summary.slice(0, 600), data: rep };
+    }
+    case "agency.status": {
+      return {
+        name: call.name,
+        ok: true,
+        via: "agency(native)",
+        data: agency.status(typeof args.id === "string" ? args.id : undefined),
+      };
+    }
+    case "permissions.request": {
         try {
           const req = permissions.request(String(args.action ?? ""), String(args.target ?? ""), String(args.reason ?? ""));
           return { name: call.name, ok: true, via: "permissions", data: req };
@@ -1340,6 +1399,9 @@ export const TOOL_CATALOG: { name: ToolName; description: string }[] = [
   { name: "agents.pause", description: "Mette in pausa un agente {name}" },
   { name: "agents.run", description: "Secondario file-worker isolato {name, task} (conferma)" },
   { name: "agents.fanout", description: "Task paralleli con coordinatore {items:[{agent|role,task}]} (conferma)" },
+  { name: "agency.create", description: "Crea un'agenzia agentica da un obiettivo {goal, steps?, owner?} → piano di ruoli + coda sul workboard" },
+  { name: "agency.run", description: "Esegue gli step di un'agenzia {id, workspace?, budgetSteps?} (conferma)" },
+  { name: "agency.status", description: "Stato delle agenzie {id?} con la coda del workboard" },
   { name: "permissions.request", description: "Chiede approvazione {action, target, reason}" },
   { name: "permissions.respond", description: "Approva/nega {id, allow}" },
   { name: "permissions.list", description: "Richieste di approvazione aperte" },
