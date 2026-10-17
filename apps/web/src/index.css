@@ -1,44 +1,51 @@
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=EB+Garamond:ital,wght@1,400;1,500&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
-/* Omnicore dashboard — token di tema propri (dark teal di default).
-   Pattern studiato dalla Hermes Web Dashboard, palette e nomi originali. */
+/* Omnicore dashboard — linguaggio Hermes (tappe 57-61 + redesign).
+   Ground blu elettrico #0000f2, fg #f5f5f5, accenti neon, display condensed
+   uppercase (Oswald) + labels mono + accenti serif (EB Garamond italic).
+   Token usati dalle pagine via Tailwind arbitrary values: nomi invariati. */
 
 :root,
 [data-theme="dark"] {
-  --bg: #07211f;
-  --bg-soft: #0a2a28;
-  --panel: #0d332f;
-  --panel-2: #103d38;
-  --line: #1c4f49;
-  --txt: #f2ede1;
-  --dim: #93b3ae;
-  --acc: #2dd4bf;
-  --acc-dim: rgba(45, 212, 191, 0.14);
-  --user: #16403c;
-  --ok: #34d399;
-  --ko: #f87171;
-  --warn: #fbbf24;
-  --shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
-  --radius: 0.75rem;
+  --bg: #0000f2;
+  --bg-soft: #0009d9;
+  --panel: #0010c2;
+  --panel-2: #001aa8;
+  --line: rgba(245, 245, 245, 0.24);
+  --txt: #f5f5f5;
+  --dim: #b9b9ec;
+  --acc: #00f279;
+  --acc-dim: rgba(0, 242, 121, 0.14);
+  --user: #00208f;
+  --ok: #00f279;
+  --ko: #ff7a7a;
+  --warn: #f2f200;
+  --neon: #00f2f2;
+  --paper: #fdfdfd;
+  --shadow: 0 10px 36px rgba(0, 0, 80, 0.45);
+  --radius: 0.5rem;
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --bg: #f4f1ea;
-  --bg-soft: #ece7da;
+  --bg: #fdfdfd;
+  --bg-soft: #f2f2f7;
   --panel: #ffffff;
-  --panel-2: #f7f4ec;
-  --line: #ddd5c3;
-  --txt: #101815;
-  --dim: #6b7a76;
-  --acc: #0d7c6c;
-  --acc-dim: rgba(13, 124, 108, 0.1);
-  --user: #e3ece9;
-  --ok: #047857;
-  --ko: #b91c1c;
-  --warn: #b45309;
-  --shadow: 0 8px 28px rgba(16, 24, 21, 0.1);
-  --radius: 0.75rem;
+  --panel-2: #eef0fd;
+  --line: #cfcfe8;
+  --txt: #0b0b60;
+  --dim: #616191;
+  --acc: #0000f2;
+  --acc-dim: rgba(0, 0, 242, 0.08);
+  --user: #e4e4fb;
+  --ok: #00913f;
+  --ko: #c81e1e;
+  --warn: #8a6d00;
+  --neon: #005fcc;
+  --paper: #fdfdfd;
+  --shadow: 0 8px 28px rgba(0, 0, 120, 0.12);
+  --radius: 0.5rem;
   color-scheme: light;
 }
 
@@ -53,6 +60,7 @@ body {
   background: var(--bg);
   color: var(--txt);
   font: 15px/1.55 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 code,
@@ -61,6 +69,53 @@ pre,
 .mono {
   font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
     monospace;
+}
+
+/* Display Hermes: condensed uppercase per brand, nav e titoli. */
+aside .text-lg,
+h1,
+h2 {
+  font-family: Oswald, "Arial Narrow", Inter, system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+aside nav a {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+header,
+footer {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+}
+
+footer {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+/* Accento serif per citazioni/empty-state futuri. */
+.serif-accent {
+  font-family: "EB Garamond", Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+::selection {
+  background: var(--acc);
+  color: var(--bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--neon);
+  outline-offset: 2px;
 }
 
 /* Scrollbar sottile in palette */
